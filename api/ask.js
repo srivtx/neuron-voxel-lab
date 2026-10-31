@@ -20,6 +20,19 @@ const DEFAULT_MODELS = "zen:deepseek-v4.1-flash";
 const SYSTEM = `You are the tutor inside "Neuron Voxel Lab", a site that teaches machine learning from first principles through Kevin Murphy's "Probabilistic Machine Learning" (both volumes) and "Dive into Deep Learning". The learner keeps only what he has verified the logic of and rejects unexplained abstraction. Always: start from a concrete picture or tiny numeric example; explain every symbol the first time it appears; say what an equation computes and why it has that shape; connect to what came before. Plain text, short paragraphs, math in plain characters (x², Σ, √, ·, ∂), no LaTeX. Small NumPy snippets in fenced code when useful.`;
 
 const MAX_CHARS = 30000;
+const MAX_TOKENS = 2400;   // room for a full derivation plus a code snippet
+const MAX_CONTINUE = 2;    // extra "keep going" calls when an answer is cut off at MAX_TOKENS
+const CONTINUE = "You were cut off. Continue exactly where you stopped: no recap, no greeting, do not repeat any text. If you were inside a code block, keep writing the code (do not open a new fence).";
+// Glue a continuation onto the first part: drop a repeated overlap and re-open nothing.
+function joinParts(a, b) {
+  b = b.replace(/^\s*(continuing|continued|…|\.\.\.)[:.]?\s*/i, "");
+  for (let k = Math.min(120, a.length, b.length); k >= 12; k--) if (a.endsWith(b.slice(0, k))) return a + b.slice(k);
+  // Cut mid-word and the model restarted the word ("probab" + "probability"): keep the whole word once.
+  const tail = /(\w+)$/.exec(a), head = /^(\w+)/.exec(b);
+  if (tail && head && head[1].length > tail[1].length && head[1].startsWith(tail[1])) return a.slice(0, -tail[1].length) + b;
+  const midWord = /\w$/.test(a) && /^\w/.test(b);
+  return a + (midWord || /^\s/.test(b) || /\s$/.test(a) ? "" : (/^[,.;:!?)\]]/.test(b) ? "" : " ")) + b;
+}
 let workingEndpoint = {}; // model -> endpoint that answered last time (survives while the function is warm)
 
 // Best-effort rate limit per IP, per warm instance: protects the key's budget from a runaway tab or a scraper.
@@ -45,6 +58,12 @@ function models() {
   return (process.env.OPENCODE_MODELS || DEFAULT_MODELS).split(",").map(s => s.trim()).filter(Boolean);
 }
 
+// Some reasoning models leak a <think>…</think> preamble into content; the learner should only see the answer.
+function cleanText(t) {
+  if (typeof t !== "string") return t;
+  return t.replace(/<think>[\s\S]*?<\/think>\s*/gi, "").replace(/^\s*<think>[\s\S]*$/i, "");
+}
+
 async function callOnce(endpoint, model, key, messages, maxTokens, ms, session) {
   const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), ms);
   try {
@@ -55,8 +74,10 @@ async function callOnce(endpoint, model, key, messages, maxTokens, ms, session) 
     });
     const raw = await r.text();
     let j = null; try { j = JSON.parse(raw); } catch {}
-    const text = j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
-    if (r.ok && text && text.trim()) return { ok: true, text };
+    const choice = j && j.choices && j.choices[0];
+    const text = cleanText(choice && choice.message && choice.message.content);
+    // finish_reason "length" means the model hit max_tokens mid-answer; the caller asks it to continue.
+    if (r.ok && text && text.trim()) return { ok: true, text, finish: choice.finish_reason || "stop" };
     const msg = (j && (j.error?.message || j.error || j.message)) || raw.slice(0, 160);
     return { ok: false, status: r.status, detail: typeof msg === "string" ? msg.slice(0, 200) : JSON.stringify(msg).slice(0, 200) };
   } catch (e) {
@@ -71,7 +92,7 @@ async function tryModel(entry, key, messages, maxTokens, ms, log, session) {
   for (const ep of order) {
     const r = await callOnce(ep, model, key, messages, maxTokens, ms, session);
     log.push({ model: entry, endpoint: ep.replace("https://opencode.ai", ""), status: r.ok ? 200 : r.status, detail: r.ok ? "ok" : r.detail });
-    if (r.ok) { workingEndpoint[entry] = ep; return { text: r.text, model }; }
+    if (r.ok) { workingEndpoint[entry] = ep; return { text: r.text, model, finish: r.finish, endpoint: ep }; }
     if (r.status === 401 || r.status === 403) break; // auth problems won't be fixed by another URL shape
   }
   return null;
@@ -114,8 +135,18 @@ export default async function handler(req, res) {
   const log = [], started = Date.now();
   for (const entry of models()) {
     const left = 55000 - (Date.now() - started); if (left < 4000) break;
-    const r = await tryModel(entry, key, [{ role: "system", content: SYSTEM }, ...clean], 1400, Math.min(40000, left - 2000), log, session);
-    if (r) return res.status(200).json(r);
+    const base = [{ role: "system", content: SYSTEM }, ...clean];
+    const r = await tryModel(entry, key, base, MAX_TOKENS, Math.min(40000, left - 2000), log, session);
+    if (!r) continue;
+    // The model ran out of room mid-answer: ask it to carry on from the exact cut, up to MAX_CONTINUE times.
+    let text = r.text, finish = r.finish, parts = 1;
+    while (finish === "length" && parts <= MAX_CONTINUE) {
+      const rest = 55000 - (Date.now() - started); if (rest < 8000) break;
+      const more = await callOnce(r.endpoint, r.model, key, [...base, { role: "assistant", content: text }, { role: "user", content: CONTINUE }], MAX_TOKENS, Math.min(30000, rest - 2000), session);
+      if (!more.ok) break;
+      text = joinParts(text, more.text); finish = more.finish; parts++;
+    }
+    return res.status(200).json({ text, model: r.model, truncated: finish === "length", parts });
   }
   return res.status(502).json({ error: "Every model failed: " + log.map(l => `${l.model} ${l.endpoint} → ${l.status} ${l.detail}`).join(" | "), tried: log });
 }
