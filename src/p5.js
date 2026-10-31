@@ -112,7 +112,8 @@ function renderChapter(b, n, ch) {
   const key = b + n, info = CHI[key], old = chInfo(b, n), rows = TOC[b].filter(x => x[0].split(".")[0] === n && x[0].includes(".")), secs = rows.filter(x => x[0].split(".").length === 2);
   const sims = info ? info.sims : old ? old[6] : [], explained = secs.filter(s => SEC[b + s[0]]).length;
   const why = info ? info.why : old ? old[5] : "This chapter's sections are listed below. Explanations and labs are coming in a later pass; you can already ask about any section.";
-  const status = explained ? `<span class="pill ok">${explained} of ${secs.filter(x => !/^(Exercises|Summary)$/.test(x[1].trim())).length} sections explained</span>` : `<span class="pill">sections listed · explanations coming</span>`;
+  const nonExSecs = secs.filter(x => !/^(Exercises|Summary)$/.test(x[1].trim()));
+  const status = explained ? `<span class="pill ok">${explained} of ${nonExSecs.length} sections explained</span>` : (!nonExSecs.length && info) ? `<span class="pill ok">chapter overview explained</span>` : `<span class="pill">sections listed · explanations coming</span>`;
   const v = $("#chapview");
   v.innerHTML = `<div><p class="eyebrow">${esc(BOOKN[b])} · chapter ${n} · p. ${ch[2]}</p><h2>${esc(ch[1].replace(/\s*\*$/, ""))}</h2>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px">${status}${sims.length ? `<span class="pill">${sims.length} lab${sims.length > 1 ? "s" : ""}</span>` : ""}${/\*$/.test(ch[1]) ? `<span class="pill">* advanced chapter</span>` : ""}</div>
@@ -120,7 +121,7 @@ function renderChapter(b, n, ch) {
     ${old && old[7] ? `<div class="block" style="margin-top:12px"><h3>The key equations, in words</h3>${old[7].map(([e, w]) => `<div class="eq" style="font-size:15px;padding:6px 10px;margin-top:6px">${esc(e)}</div><p class="note" style="margin:4px 0 0;color:var(--ink)">${esc(w)}</p>`).join("")}</div>` : ""}</div>
     ${sims.length ? `<div class="block"><h3>Labs for this chapter</h3><div class="btns" style="margin:0">${sims.map(s => `<button type="button" class="btn" data-sim="${s}" aria-pressed="false">${esc(ST[s].isLab ? ST[s].tab : "Station " + s.slice(1) + ": " + ST[s].tab)}</button>`).join("")}</div></div>` : ""}
     <div class="block" id="lab" hidden></div>
-    <div><h3 style="font:700 18px var(--f-display);margin:6px 0 8px">Sections</h3><div class="secs">${secs.map(s => secCard(b, s, rows)).join("")}</div></div>
+    ${secs.length ? `<div><h3 style="font:700 18px var(--f-display);margin:6px 0 8px">Sections</h3><div class="secs">${secs.map(s => secCard(b, s, rows)).join("")}</div></div>` : ""}
     <div class="block ask" id="chap-ask"></div>
     <div class="btns" style="justify-content:space-between"><button class="btn" type="button" data-step="-1">← Previous chapter</button><button class="btn primary" type="button" data-step="1">Next chapter →</button></div>`;
   v.querySelectorAll("[data-sim]").forEach(x => x.onclick = () => startSim(x.dataset.sim));
