@@ -255,3 +255,81 @@ lab("m15attn", {
   },
   state() { const A = this.matrix(), qi = this.p.q; return `Self-attention (${this.p.head} head, ${this.p.mask} mask, T=${this.p.temp}), inspecting query "${this.toks[qi]}" with weights [${A[qi].map(pct).join(", ")}].`; }
 });
+
+/* Murphy ch. 17 / D2L ch. 18 / Murphy 2 ch. 18: Kernel SVM & support vectors in 3D */
+lab("m17svm", {
+  title: "Kernels & SVMs: bend the boundary without building features", tab: "Kernel SVM", cam: [[0, 14, 19], [0, 1.8, 0]],
+  how: "Orange (+1) and blue (−1) points sit on the floor; on the 'Ring' or 'XOR' datasets no straight line can separate them. Switch the kernel from Linear to Polynomial or RBF and watch the floating 3D sheet f(x) = Σₙ αₙ yₙ k(xₙ, x) + b lift the centre and carve a curved boundary. Points ringed in yellow are the support vectors (αₙ > 0): delete every other point and the boundary wouldn't move at all.",
+  legend: () => `<b>Decision sheet σ(f(x)) & support vectors</b><div class="row"><span><i class="sw" style="background:var(--c1)"></i>class +1</span><span><i class="sw" style="background:var(--c2)"></i>class −1</span><span><i class="sw" style="background:var(--c4)"></i>support vector (αₙ > 0)</span></div>`,
+  ctl: [
+    { seg: "data", label: "Dataset", opts: [["ring", "Inner disc vs outer ring"], ["xor", "XOR quadrants"], ["lin", "Two blobs"]], v: "ring" },
+    { seg: "kern", label: "Kernel", opts: [["rbf", "RBF exp(−‖x−x′‖²/2ℓ²)"], ["poly", "Polynomial (1 + x·x′)²"], ["lin", "Linear x·x′"]], v: "rbf" },
+    { s: "ell", label: "RBF lengthscale ℓ", min: 0.25, max: 2.5, step: 0.05, v: 0.85, fmt: f2 },
+    { s: "C", label: "Margin penalty C", min: 0.2, max: 10, step: 0.2, v: 3, fmt: f2 },
+    { btns: [["new", "New sample", true]] }
+  ],
+  stats: [["acc", "Accuracy"], ["sv", "Support vectors"], ["kname", "Feature space"]],
+  init() { this.seed = 7; this.make(); },
+  act() { this.seed = (R0() * 1e9) | 0; this.make(); },
+  change(k) { if (k === "data") this.make(); else this.fit(); },
+  kfn(a, b) {
+    if (this.p.kern === "lin") return a[0] * b[0] + a[1] * b[1];
+    if (this.p.kern === "poly") { const d = 1 + a[0] * b[0] + a[1] * b[1]; return d * d; }
+    const dx = a[0] - b[0], dy = a[1] - b[1], s2 = 2 * this.p.ell * this.p.ell;
+    return Math.exp(-(dx * dx + dy * dy) / s2);
+  },
+  make() {
+    const r = rng(this.seed), d = this.p.data, pts = [];
+    for (let i = 0; i < 44; i++) {
+      if (d === "ring") {
+        const inner = i < 20, rad = inner ? r() * 0.95 : 1.55 + r() * 0.85, th = r() * Math.PI * 2;
+        pts.push([rad * Math.cos(th), rad * Math.sin(th), inner ? 1 : -1]);
+      } else if (d === "xor") {
+        const sx = (i & 1) ? 1.15 : -1.15, sy = (i & 2) ? 1.15 : -1.15;
+        pts.push([sx + randn(r) * 0.42, sy + randn(r) * 0.42, sx * sy > 0 ? 1 : -1]);
+      } else {
+        const c = i < 22 ? 1 : -1;
+        pts.push([c * 1.1 + randn(r) * 0.65, c * 0.6 + randn(r) * 0.65, c]);
+      }
+    }
+    this.pts = pts.map(([x, y, c]) => [clamp(x, -2.7, 2.7), clamp(y, -2.7, 2.7), c]);
+    this.fit();
+  },
+  fit() {
+    const P = this.pts, N = P.length, C = this.p.C, K = Array.from({ length: N }, (_, i) => Array.from({ length: N }, (_, j) => this.kfn(P[i], P[j])));
+    const al = new Float64Array(N); let b = 0;
+    for (let it = 0; it < 90; it++) {
+      for (let i = 0; i < N; i++) {
+        let f = b; for (let j = 0; j < N; j++) if (al[j] > 0) f += al[j] * P[j][2] * K[i][j];
+        const g = 1 - P[i][2] * f, old = al[i];
+        al[i] = clamp(old + g / (K[i][i] + 0.15), 0, C);
+        b += 0.08 * P[i][2] * (al[i] - old);
+      }
+    }
+    this.al = al; this.b = b;
+    let ok = 0, sv = 0;
+    for (let i = 0; i < N; i++) { if (al[i] > 0.04 * C) sv++; if ((this.score(P[i][0], P[i][1]) >= 0) === (P[i][2] === 1)) ok++; }
+    this.acc = ok / N; this.svCount = sv; this.refresh();
+  },
+  score(x, y) { let s = this.b; for (let i = 0; i < this.pts.length; i++) if (this.al[i] > 1e-4) s += this.al[i] * this.pts[i][2] * this.kfn(this.pts[i], [x, y]); return s; },
+  refresh() {
+    if (!this.pts) return;
+    setS("acc", pct(this.acc)); setS("sv", `${this.svCount} of ${this.pts.length}`);
+    setS("kname", this.p.kern === "rbf" ? "∞-dim bumps" : this.p.kern === "poly" ? "6-dim quadratics" : "2-dim plane");
+    labExtra(`<p style="margin:8px 0 0">The prediction at x only uses dot products via k(xₙ, x) and only sums over the <b>${this.svCount} support vectors</b> with αₙ > 0 (yellow rings). ${this.p.kern === "rbf" ? `With ℓ = ${f2(this.p.ell)}, each support vector places a Gaussian bump of width ℓ; shrink ℓ and the sheet turns into isolated spikes around each point (overfitting), widen ℓ and it flattens toward a plane (Murphy §17.1–17.3).` : this.p.kern === "poly" ? "The degree-2 kernel (1 + x·x′)² implicitly lifts (x₁, x₂) into (1, √2x₁, √2x₂, x₁², √2x₁x₂, x₂²) where rings and XOR become linearly separable!" : "A linear kernel can only tilt a flat plane, so it fails on concentric rings and XOR."}</p>`);
+  },
+  draw() {
+    const G = 24, cs = 11.5 / G, Cmax = this.p.C;
+    for (let i = 0; i < G; i++) for (let j = 0; j < G; j++) {
+      const x = -2.8 + (i + 0.5) * 5.6 / G, y = -2.8 + (j + 0.5) * 5.6 / G, p = sig(this.score(x, y) * 1.6);
+      V.box(x * 2, p * 3.8, -y * 2, cs * 0.58, 0.14, cs * 0.58, mix3(C.c2, C.card, C.c1, p), null);
+      V.box(x * 2, -0.08, -y * 2, cs * 0.95, 0.06, cs * 0.95, (i + j) & 1 ? C.panel : C.line, null);
+    }
+    this.pts.forEach(([x, y, c], i) => {
+      const isSV = this.al[i] > 0.04 * Cmax, yy = (c > 0 ? 3.8 : 0) + 0.12;
+      if (isSV) V.box(x * 2, yy - 0.08, -y * 2, 0.52, 0.1, 0.52, C.c4, null);
+      V.box(x * 2, yy, -y * 2, 0.28, 0.28, 0.28, c > 0 ? C.c1 : C.c2, null);
+    });
+  },
+  state() { return `Kernel SVM (${this.p.kern} kernel, dataset ${this.p.data}, ℓ=${this.p.ell}, C=${this.p.C}): ${this.svCount}/${this.pts.length} support vectors, accuracy ${pct(this.acc)}.`; }
+});
