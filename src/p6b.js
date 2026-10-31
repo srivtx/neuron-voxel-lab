@@ -66,18 +66,18 @@ function aiErrorHTML(e, retry) {
 function explainButton(host, key, promptFn, label = "Explain this simply (AI)") {
   const btn = document.createElement("button"); btn.type = "button"; btn.className = "btn ai"; btn.textContent = label;
   const out = document.createElement("div"); out.className = "ai-out";
-  const show = (text, model) => { out.innerHTML = md(text) + `<p class="note">Written by ${esc(model || "AI")} on request; check it against the book.</p>`; btn.textContent = "Explain again"; };
+  const show = (text, model, cut) => { out.innerHTML = md(text) + (cut ? `<p class="cut">This explanation was cut short. Press "Explain again" or ask below for the rest.</p>` : "") + `<p class="note">Written by ${esc(model || "AI")} on request; check it against the book.</p>`; btn.textContent = "Explain again"; };
   let cached = null; try { cached = JSON.parse(localStorage.getItem(AIKEY + key) || "null"); } catch (e) { }
-  if (cached) show(cached.text, cached.model);
+  if (cached) show(cached.text, cached.model, cached.truncated);
   const run = async () => {
     btn.disabled = true; out.innerHTML = `<p class="note">Thinking…</p>`;
-    try { const j = await askAI([{ role: "user", content: promptFn() }]); show(j.text, j.model); try { localStorage.setItem(AIKEY + key, JSON.stringify({ text: j.text, model: j.model })); } catch (e) { } }
+    try { const j = await askAI([{ role: "user", content: promptFn() }]); show(j.text, j.model, j.truncated); try { localStorage.setItem(AIKEY + key, JSON.stringify({ text: j.text, model: j.model, truncated: !!j.truncated })); } catch (e) { } }
     catch (e) { out.innerHTML = ""; out.append(aiErrorHTML(e, run)); }
     finally { btn.disabled = false; }
   };
   btn.onclick = run; host.append(btn, out);
 }
-const EASY_RULES = "Explain for a learner who only remembers what he has verified himself and rejects unexplained abstraction. Start with an everyday picture or a tiny numeric example, then the idea in plain words, then the equation with every symbol explained and a small worked number, then why it matters and what it connects to. Plain text, short paragraphs, math in plain characters (x², Σ, √, ·), no LaTeX. Under 300 words.";
+const EASY_RULES = "Explain for a learner who only remembers what he has verified himself and rejects unexplained abstraction. Start with an everyday picture or a tiny numeric example, then the idea in plain words, then the equation with every symbol explained and a small worked number, then why it matters and what it connects to. Short paragraphs (\"- \" lists allowed), **bold** only for a few key terms and always closed, math in plain characters (x², Σ, √, ·), never LaTeX. Under 300 words, and end on a complete sentence.";
 
 /* ================= drawers: library, symbols ================= */
 function drawer(id, title, sub) {
