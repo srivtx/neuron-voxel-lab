@@ -714,3 +714,56 @@ lab("a35rl", {
   },
   state() { return `MDP Gridworld (γ=${this.p.gam}, stepR=${this.p.stepR}, slip=${this.p.slip}, ${this.it} backups): V(0,0)=${f2(this.V[0][0])}.`; }
 });
+
+/* Murphy 2 ch. 4 & 36: Causality, confounding & do-calculus in 3D */
+lab("a36causal", {
+  title: "Seeing vs doing: P(Y | X) vs P(Y | do(X)) in 3D", tab: "Causality & do(X)", cam: [[0, 14, 18], [0, 1.8, 0]],
+  how: "Four towers on the left show recovery rates for Mild (front) and Severe (back) patients, Untreated (blue) vs Treated (orange). Within BOTH mild and severe groups, the orange tower is taller—the drug helps everyone! Yet in Observational mode, doctors give the drug mostly to severe patients, so the overall Treated average (right) is dragged down below Untreated. Switch to Interventional do(X) to cut the Z → X confounder arrow and reveal the true causal effect.",
+  legend: () => `<b>Recovery rate (height) & group share (width)</b><div class="row"><span><i class="sw" style="background:var(--c2)"></i>no drug (X=0)</span><span><i class="sw" style="background:var(--c1)"></i>drug (X=1)</span><span><i class="sw" style="background:var(--c3)"></i>true causal boost</span></div>`,
+  ctl: [
+    { seg: "mode", label: "Query", opts: [["obs", "Observational P(Y | X) (confounded)"], ["do", "Interventional P(Y | do(X)) (backdoor adjusted)"]], v: "obs" },
+    { s: "ps", label: "P(drug | severe Z=1)", min: 0.1, max: 0.95, step: 0.05, v: 0.85, fmt: pct },
+    { s: "pm", label: "P(drug | mild Z=0)", min: 0.05, max: 0.9, step: 0.05, v: 0.15, fmt: pct },
+    { s: "eff", label: "True causal effect of drug", min: 0, max: 0.35, step: 0.02, v: 0.14, fmt: pct }
+  ],
+  stats: [["obsDiff", "Observational P(Y|1) − P(Y|0)"], ["doDiff", "Causal P(Y|do(1)) − P(Y|do(0))"], ["bias", "Confounding bias"]],
+  change() { this.refresh(); },
+  calc() {
+    const pz = 0.5, pm = this.p.pm, ps = this.p.ps, e = this.p.eff;
+    const y00 = 0.78, y10 = clamp(y00 + e, 0, 0.99), y01 = 0.26, y11 = clamp(y01 + e, 0, 0.99);
+    const w10 = (1 - pz) * pm, w11 = pz * ps, w00 = (1 - pz) * (1 - pm), w01 = pz * (1 - ps);
+    const obs1 = (w10 * y10 + w11 * y11) / (w10 + w11), obs0 = (w00 * y00 + w01 * y01) / (w00 + w01);
+    const do1 = (1 - pz) * y10 + pz * y11, do0 = (1 - pz) * y00 + pz * y01;
+    return { y00, y10, y01, y11, w00, w10, w01, w11, obs0, obs1, do0, do1 };
+  },
+  refresh() {
+    const c = this.calc(), od = c.obs1 - c.obs0, dd = c.do1 - c.do0;
+    setS("obsDiff", (od >= 0 ? "+" : "") + pct(od));
+    setS("doDiff", (dd >= 0 ? "+" : "") + pct(dd));
+    setS("bias", (od - dd >= 0 ? "+" : "") + pct(od - dd));
+    labExtra(`<p style="margin:8px 0 0">${od < 0 && dd > 0 ? `<b>Simpson's paradox!</b> Naive conditioning gives P(Y|X=1) − P(Y|X=0) = ${pct(od)} (looks harmful!), because ${pct(c.w11 / (c.w10 + c.w11))} of treated patients are severe vs only ${pct(c.w01 / (c.w00 + c.w01))} of untreated. ` : ""}Backdoor adjustment P(Y | do(X=x)) = Σ_z P(Y | X=x, Z=z) P(Z=z) weights both strata equally (50/50) and recovers the exact causal effect <b>+${pct(dd)}</b> (Murphy 2 §36.3).</p>`);
+  },
+  draw() {
+    const c = this.calc(), isDo = this.p.mode === "do", H = 4.6;
+    const s00 = isDo ? 0.5 : c.w00 / (c.w00 + c.w01), s01 = 1 - s00;
+    const s10 = isDo ? 0.5 : c.w10 / (c.w10 + c.w11), s11 = 1 - s10;
+    const bars = [
+      [-4.2, 1.8, c.y00, s00, C.c2, "Mild · X=0"],
+      [-1.8, 1.8, c.y10, s10, C.c1, "Mild · X=1"],
+      [-4.2, -1.8, c.y01, s01, C.c2, "Severe · X=0"],
+      [-1.8, -1.8, c.y11, s11, C.c1, "Severe · X=1"]
+    ];
+    for (const [x, z, y, w, col, lbl] of bars) {
+      const bw = 0.55 + w * 1.15, h = y * H;
+      V.box(x, 0, z, bw, h, bw, col, null);
+      pin(x, h + 0.45, z, `${lbl} (${pct(y)})`, "flat");
+    }
+    const a0 = isDo ? c.do0 : c.obs0, a1 = isDo ? c.do1 : c.obs1;
+    V.box(2.2, 0, 0, 1.35, a0 * H, 1.35, C.c2, null);
+    V.box(4.4, 0, 0, 1.35, a1 * H, 1.35, C.c1, null);
+    Ln.seg(2.2, a0 * H + 0.1, 0, 4.4, a1 * H + 0.1, 0, a1 >= a0 ? C.c3 : C.c1);
+    pin(2.2, a0 * H + 0.55, 0, `${isDo ? "do(X=0)" : "P(Y|X=0)"}: ${pct(a0)}`, "flat");
+    pin(4.4, a1 * H + 0.55, 0, `${isDo ? "do(X=1)" : "P(Y|X=1)"}: ${pct(a1)}`, a1 >= a0 ? "ok" : "hot");
+  },
+  state() { const c = this.calc(); return `Causality lab (${this.p.mode}): observational diff ${pct(c.obs1 - c.obs0)}, causal do(X) diff +${pct(c.do1 - c.do0)}.`; }
+});
