@@ -634,3 +634,83 @@ lab("a25diff", {
   },
   state() { const ab = this.abar(this.p.t); return `Diffusion lab at step t=${this.p.t}/50, ᾱ_t=${f3(ab)}, SNR=${f2(ab / Math.max(1e-4, 1 - ab))}.`; }
 });
+
+/* D2L ch. 17 / Murphy 2 ch. 34 & 35: MDP Gridworld Value Iteration & Policy Arrows in 3D */
+lab("a35rl", {
+  title: "Bellman backups in 3D: watch value flow back from the goal", tab: "MDP & Bellman", cam: [[0, 16, 15], [0, 1, 0]],
+  how: "The green corner is the Goal (+10); the red tile next to it is a Pit (−10); dark blocks are walls. Every non-terminal tile's tower height is its value V(s), and the black line shows its best action π*(s). Click '1 Bellman backup' repeatedly to watch reward propagate one square per step backwards from the goal. Then raise 'Slip probability' and watch the optimal policy detour around the pit instead of walking along its cliff!",
+  legend: () => `<b>State values V(s) & greedy policy π*(s)</b><div class="row"><span><i class="sw" style="background:var(--c3)"></i>goal (+10)</span><span><i class="sw" style="background:var(--c1)"></i>pit (−10)</span><span><i class="sw" style="background:var(--c4)"></i>positive V(s)</span></div>`,
+  ctl: [
+    { s: "gam", label: "Discount factor γ", min: 0.2, max: 0.99, step: 0.01, v: 0.9, fmt: f2 },
+    { s: "stepR", label: "Step cost r_step", min: -1.5, max: 0, step: 0.05, v: -0.2, fmt: f2 },
+    { s: "slip", label: "Slip probability", min: 0, max: 0.5, step: 0.05, v: 0.1, fmt: f2 },
+    { btns: [["one", "1 Bellman step", true], ["conv", "Run to convergence"], ["zero", "Reset V(s) = 0"]] }
+  ],
+  stats: [["it", "Backups"], ["v0", "Start value V(0,0)"], ["dmax", "Max |ΔV|"]],
+  init() { this.zero(); for (let i = 0; i < 12; i++) this.backup(); this.refresh(); },
+  isWall(r, c) { return (r === 1 && c === 2) || (r === 2 && c === 2); },
+  isTerm(r, c) { return (r === 4 && c === 4) || (r === 3 && c === 3); },
+  zero() {
+    this.V = Array.from({ length: 5 }, (_, r) => Array.from({ length: 5 }, (_, c) => (r === 4 && c === 4) ? 10 : (r === 3 && c === 3) ? -10 : 0));
+    this.pi = Array.from({ length: 5 }, () => new Array(5).fill(0));
+    this.it = 0; this.dmax = 0;
+  },
+  stepDest(r, c, a) {
+    const dr = [0, 1, 0, -1][a], dc = [1, 0, -1, 0][a], nr = r + dr, nc = c + dc;
+    if (nr < 0 || nr >= 5 || nc < 0 || nc >= 5 || this.isWall(nr, nc)) return [r, c];
+    return [nr, nc];
+  },
+  qVal(r, c, a) {
+    const ps = this.p.slip, main = 1 - ps, side = ps / 2, gam = this.p.gam, sr = this.p.stepR;
+    let q = 0;
+    for (const [act, prob] of [[a, main], [(a + 1) % 4, side], [(a + 3) % 4, side]]) {
+      const [nr, nc] = this.stepDest(r, c, act);
+      q += prob * (sr + gam * this.V[nr][nc]);
+    }
+    return q;
+  },
+  backup() {
+    const nextV = this.V.map(row => row.slice()); let dm = 0;
+    for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++) {
+      if (this.isWall(r, c) || this.isTerm(r, c)) continue;
+      let bestQ = -Infinity, bestA = 0;
+      for (let a = 0; a < 4; a++) { const q = this.qVal(r, c, a); if (q > bestQ) { bestQ = q; bestA = a; } }
+      dm = Math.max(dm, Math.abs(bestQ - this.V[r][c]));
+      nextV[r][c] = bestQ; this.pi[r][c] = bestA;
+    }
+    this.V = nextV; this.it++; this.dmax = dm;
+  },
+  act(a) {
+    if (a === "one") this.backup();
+    else if (a === "conv") for (let i = 0; i < 60; i++) { this.backup(); if (this.dmax < 1e-5) break; }
+    else this.zero();
+    this.refresh();
+  },
+  change() { const k = Math.max(1, this.it); this.zero(); for (let i = 0; i < k; i++) this.backup(); this.refresh(); },
+  onHover(t) { if (t && t.r != null) return `state (${t.r}, ${t.c})\nV(s) = ${f2(this.V[t.r][t.c])}`; },
+  refresh() {
+    if (!this.V) return;
+    setS("it", this.it); setS("v0", f2(this.V[0][0])); setS("dmax", f3(this.dmax));
+    labExtra(`<p style="margin:8px 0 0">Each Bellman backup sets V(s) ← maxₐ E[r + γ V(s′)]. After k backups from zero, states k steps from the goal learn their value. ${this.p.slip >= 0.25 ? "With high slip noise, walking past (4,3) risks slipping into the −10 pit at (3,3), so the optimal policy takes the longer safe route around the left side of the wall!" : "With low slip noise, the agent takes the shortest path right past the pit (D2L §17.2, Murphy 2 §34.5)."}</p>`);
+  },
+  draw() {
+    const S = 1.9;
+    for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++) {
+      const x = (c - 2) * S, z = (2 - r) * S;
+      V.box(x, -0.08, z, S * 0.92, 0.06, S * 0.92, (r + c) & 1 ? C.panel : C.line, { r, c });
+      if (this.isWall(r, c)) { V.box(x, 0, z, S * 0.82, 1.5, S * 0.82, C.ink, { r, c }); continue; }
+      const v = this.V[r][c], isGoal = r === 4 && c === 4, isPit = r === 3 && c === 3;
+      const h = Math.max(0.14, (clamp(v, -10, 10) + 10) * 0.22);
+      const col = isGoal ? C.c3 : isPit ? C.c1 : mix3(C.c2, C.card, C.c4, clamp((v + 6) / 16, 0, 1));
+      V.box(x, 0, z, S * 0.72, h, S * 0.72, col, { r, c });
+      if (isGoal) pin(x, h + 0.5, z, "+10 Goal", "ok");
+      else if (isPit) pin(x, h + 0.5, z, "−10 Pit", "hot");
+      else if (this.it > 0) {
+        const a = this.pi[r][c], dx = [1, 0, -1, 0][a] * 0.55, dz = [0, -1, 0, 1][a] * 0.55;
+        Ln.seg(x, h + 0.12, z, x + dx, h + 0.12, z + dz, C.ink);
+        V.box(x + dx, h + 0.08, z + dz, 0.18, 0.18, 0.18, C.ink, { r, c });
+      }
+    }
+  },
+  state() { return `MDP Gridworld (γ=${this.p.gam}, stepR=${this.p.stepR}, slip=${this.p.slip}, ${this.it} backups): V(0,0)=${f2(this.V[0][0])}.`; }
+});
