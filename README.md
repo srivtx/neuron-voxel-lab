@@ -25,9 +25,9 @@ It covers:
 
 | Book | Short name | Coverage |
 |---|---|---|
-| Kevin P. Murphy, *Probabilistic Machine Learning: An Introduction* (2022) | **Murphy 1** | Full table of contents; ch. 1–14 explained section by section, with labs, live equations and exercises |
-| Aston Zhang, Zachary C. Lipton, Mu Li, Alexander J. Smola, *Dive into Deep Learning* | **D2L** | Full table of contents, chapter summaries, stations and live equations mapped to sections |
-| Kevin P. Murphy, *Probabilistic Machine Learning: Advanced Topics* (2023) | **Murphy 2** | Full table of contents, chapter summaries, concept map links |
+| Kevin P. Murphy, *Probabilistic Machine Learning: An Introduction* (2022) | **Murphy 1** | Full table of contents; all 23 chapters explained section by section, with easy analogies, key equations, labs, live equations and exercises |
+| Aston Zhang, Zachary C. Lipton, Mu Li, Alexander J. Smola, *Dive into Deep Learning* | **D2L** | Full table of contents; all 21 chapters explained section by section, with easy analogies, key equations, stations and live equations mapped to sections |
+| Kevin P. Murphy, *Probabilistic Machine Learning: Advanced Topics* (2023) | **Murphy 2** | Full table of contents; all 36 chapters explained section by section, with easy analogies, key equations and concept map links |
 
 Every one of the **2,660** chapters, sections and subsections is in the library, with page numbers. Each one also has an *Explain this simply* button and an ask box backed by an AI tutor.
 
