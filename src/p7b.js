@@ -185,3 +185,73 @@ lab("m21km", {
 CHI.M9 = { why: "A different route to classification: instead of drawing the boundary directly, model what each class's data looks like, then use Bayes' rule to ask which class best explains a new point. Gaussian classes give LDA (straight boundaries) or QDA (curved ones); assuming features are independent gives naive Bayes. Comparing this with logistic regression (ch. 10) is the generative-vs-discriminative question.", builds: "ch. 2 (Bayes' rule), ch. 3 (multivariate Gaussian), ch. 4 (MLE)", sims: ["m9gda"] };
 CHI.M11 = { why: "Predicting a number. Least squares has an exact answer (the normal equations), and it equals maximum likelihood under Gaussian noise. With many or correlated features it overfits, so you add a penalty: ridge (ℓ₂) shrinks weights smoothly; lasso (ℓ₁) sets some exactly to zero and so selects features. The chapter ends with robust and Bayesian versions.", builds: "ch. 4 (MLE, regularisation), ch. 7 (least squares), ch. 8 (optimisation)", sims: ["m11l1", "m1fit", "s3"] };
 CHI.M21 = { why: "Find groups with no labels. K-means alternates 'assign each point to its nearest centre' and 'move each centre to its points' average'; Gaussian mixtures do the same softly with EM; hierarchical clustering builds a tree of merges; spectral clustering uses a graph's eigenvectors.", builds: "ch. 3 (mixtures), ch. 8 (EM), ch. 7 (eigenvectors)", sims: ["m21km", "m3gauss"] };
+
+/* Murphy ch. 15 / D2L ch. 11: self-attention 3D matrix & multi-head routing */
+lab("m15attn", {
+  title: "Self-attention: the T × T lookup table in 3D", tab: "Self-attention", cam: [[0, 16, 15], [0, 0.8, 0]],
+  how: "Six tokens sit along the rows (queries, asking) and columns (keys, answering): 'The trophy did not fit it'. Each tower at (row i, col j) has height αᵢⱼ = softmax(qᵢ·kⱼ / (T·√d))—how much token i reads from token j. Switch attention heads to see one head resolve what 'it' refers to ('trophy') while another tracks local neighbours or verb arguments. Turn on the causal mask (GPT style) and the upper triangle drops to zero because future tokens are hidden.",
+  legend: () => `<b>Attention weights αᵢⱼ (each row sums to 1)</b><div class="row"><span><i class="sw" style="background:var(--c1)"></i>selected query row</span><span><i class="sw" style="background:var(--c4)"></i>other rows</span><span><i class="sw" style="background:var(--line)"></i>masked (future)</span></div>`,
+  ctl: [
+    { seg: "head", label: "Attention head", opts: [["coref", "Head 1: coreference ('it' → 'trophy')"], ["syntax", "Head 2: verb–object ('fit' ↔ 'trophy')"], ["local", "Head 3: local window"]], v: "coref" },
+    { seg: "mask", label: "Mask", opts: [["bi", "Bidirectional (BERT)"], ["causal", "Causal mask j ≤ i (GPT)"]], v: "bi" },
+    { s: "q", label: "Inspect query token i", min: 0, max: 5, step: 1, v: 5, fmt: i => ["0: The", "1: trophy", "2: did", "3: not", "4: fit", "5: it"][i] },
+    { s: "temp", label: "Temperature T (× √d)", min: 0.2, max: 3, step: 0.05, v: 0.8, fmt: f2 }
+  ],
+  stats: [["top", "Top attended key"], ["ent", "Row entropy (bits)"], ["self", "Self-weight αᵢᵢ"]],
+  toks: ["The", "trophy", "did", "not", "fit", "it"],
+  rawScores(h) {
+    if (h === "coref") return [
+      [2.2, 1.4, 0.1, 0.0, 0.2, 0.1],
+      [1.2, 2.5, 0.3, 0.1, 1.1, 1.8],
+      [0.2, 1.5, 2.0, 1.4, 1.6, 0.3],
+      [0.1, 0.4, 1.8, 2.1, 1.7, 0.2],
+      [0.3, 2.4, 1.2, 1.3, 2.0, 1.9],
+      [0.4, 3.4, 0.2, 0.2, 1.5, 1.2]
+    ];
+    if (h === "syntax") return [
+      [1.8, 2.6, 0.2, 0.1, 0.3, 0.1],
+      [1.9, 1.6, 0.8, 0.2, 2.7, 0.9],
+      [0.2, 1.4, 1.8, 1.9, 2.5, 0.4],
+      [0.1, 0.3, 2.2, 1.7, 2.4, 0.2],
+      [0.3, 2.9, 1.5, 1.6, 1.8, 2.6],
+      [0.2, 1.7, 0.4, 0.3, 2.8, 1.5]
+    ];
+    return Array.from({ length: 6 }, (_, i) => Array.from({ length: 6 }, (_, j) => 2.5 - Math.abs(i - j) * 1.4));
+  },
+  matrix() {
+    const S = this.rawScores(this.p.head), T = this.p.temp, causal = this.p.mask === "causal";
+    return S.map((row, i) => {
+      const z = row.map((v, j) => (causal && j > i) ? -1e9 : v / T);
+      const m = Math.max(...z), e = z.map(v => Math.exp(v - m)), s = e.reduce((a, b) => a + b, 0);
+      return e.map(v => v / s);
+    });
+  },
+  change() { this.refresh(); },
+  onPick(t) { if (t && t.qi != null) { this.p.q = t.qi; const el = $("#L-q"), o = $("#LO-q"); if (el) { el.value = t.qi; o.textContent = ["0: The", "1: trophy", "2: did", "3: not", "4: fit", "5: it"][t.qi]; } this.refresh(); } },
+  onHover(t) { if (t && t.qi != null) { const A = this.matrix(); return `query "${this.toks[t.qi]}" → key "${this.toks[t.kj]}"\nweight α = ${pct(A[t.qi][t.kj])}`; } },
+  refresh() {
+    const A = this.matrix(), qi = this.p.q, row = A[qi];
+    let bj = 0; row.forEach((v, j) => { if (v > row[bj]) bj = j; });
+    const H = -row.reduce((s, p) => s + (p > 1e-9 ? p * Math.log2(p) : 0), 0);
+    setS("top", `"${this.toks[bj]}" (${pct(row[bj])})`);
+    setS("ent", f2(H) + " bits");
+    setS("self", pct(row[qi]));
+    labExtra(`<p style="margin:8px 0 0">Query <b>"${this.toks[qi]}"</b> sends ${row.map((w, j) => `${pct(w)} to "${this.toks[j]}"`).join(", ")}. ${this.p.mask === "causal" ? "With the causal mask on, each token can only attend to itself and earlier tokens (j ≤ i), so training all 6 next-token predictions in parallel never leaks future words (Murphy §15.5, D2L §11.5)." : "In bidirectional mode every token sees both left and right context (like BERT)."}</p>`);
+  },
+  draw() {
+    const A = this.matrix(), qi = this.p.q, S = 1.65, causal = this.p.mask === "causal";
+    for (let i = 0; i < 6; i++) {
+      pin(-5.4, 0.25, (i - 2.5) * S, `q:${this.toks[i]}`, i === qi ? "hot" : "flat");
+      pin((i - 2.5) * S, 0.25, -5.2, `k:${this.toks[i]}`, "flat");
+      for (let j = 0; j < 6; j++) {
+        const w = A[i][j], x = (j - 2.5) * S, z = (i - 2.5) * S, masked = causal && j > i;
+        V.box(x, -0.08, z, S * 0.92, 0.06, S * 0.92, i === qi ? mix(C.c1, C.panel, 0.7) : ((i + j) & 1 ? C.panel : C.line), { qi: i, kj: j });
+        if (masked) continue;
+        const h = Math.max(0.08, w * 4.8);
+        V.box(x, 0, z, S * 0.62, h, S * 0.62, i === qi ? C.c1 : C.c4, { qi: i, kj: j });
+        if (i === qi && w > 0.08) Ln.seg((qi - 2.5) * S, A[qi][qi] * 4.8 + 0.3, z, x, h + 0.2, z, C.ink);
+      }
+    }
+  },
+  state() { const A = this.matrix(), qi = this.p.q; return `Self-attention (${this.p.head} head, ${this.p.mask} mask, T=${this.p.temp}), inspecting query "${this.toks[qi]}" with weights [${A[qi].map(pct).join(", ")}].`; }
+});
