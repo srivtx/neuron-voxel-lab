@@ -1,0 +1,4 @@
+/* Murphy 2 ch. 1: Introduction — intro */
+Object.assign(CHI, {
+  A1: { why: "Book 1 treated machine learning mostly as predicting a single label y from a single vector x under independent identically distributed data and point-estimated weights. Book 2 ('Advanced Topics') removes every one of those training wheels: it organises the field around four pillars — foundations (probability, statistics, graphical models, information theory, optimisation), Bayesian inference algorithms (filtering, message passing, variational inference, Monte Carlo, MCMC, SMC), predictive models with calibrated uncertainty (GLMs, BNNs, GPs), and generative, latent-structure, and decision-making models (VAEs, flows, EBMs, diffusion, GANs, state-space models, causality, and RL).", builds: "Murphy 1 ch. 1–23", sims: [] }
+});
