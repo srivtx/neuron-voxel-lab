@@ -108,7 +108,7 @@ ST.sky = {
 
 function stepChapter(d) { const b = curChap ? curChap[0] : "M", list = chapters(b), i = list.findIndex(c => b + c[0] === curChap), j = clamp(i + d, 0, list.length - 1); goChapter(b + list[j][0]); }
 
-const SUB = {};
+const SUBS = {};
 function renderChapter(b, n, ch) {
   const key = b + n, info = CHI[key], old = chInfo(b, n), rows = TOC[b].filter(x => x[0].split(".")[0] === n && x[0].includes(".")), secs = rows.filter(x => x[0].split(".").length === 2);
   const sims = (info && info.sims && info.sims.length) ? info.sims : old ? old[6] : [], explained = secs.filter(s => SEC[b + s[0]]).length;
@@ -156,7 +156,7 @@ function secCard(b, s, rows) {
     <div class="sec-body">${EASY[b + s[0]] ? `<p class="easy"><span class="tag">Easy</span>${esc(EASY[b + s[0]])}</p>` : ""}${e ? `<p>${esc(e.t)}</p>${e.eq ? `<div class="eq" style="font-size:15px;padding:6px 10px">${esc(e.eq[0])}</div><p class="note" style="margin:4px 0 0;color:var(--ink)">${esc(e.eq[1])}</p>` : ""}${e.ex ? `<div class="callout" style="margin-top:4px"><span class="eyebrow" style="color:var(--c4);display:block;margin-bottom:2px">Worked example</span>${esc(e.ex)}</div>` : ""}${e.code && typeof codeBlock === "function" ? codeBlock(e.code, e.codeLabel || "In code (NumPy / PyTorch)") : ""}` : ex ? `<p class="note" style="margin:0">Exercises: try them after the labs; ask below if you get stuck.</p>` : `<p class="note" style="margin:0">Not explained on the site yet. Use <b>Ask</b> for a from-scratch explanation now.</p>`}
     <p class="note" style="margin:6px 0 0">First pass: <b>${star ? "skip for now (marked * in the book)" : ex ? "after the chapter" : "read"}</b></p>
     ${(LIVE_SEC[b + s[0]] || []).map(liveHTML).join("")}
-    ${subs.length ? `<ul class="subs">${subs.map(x => `<li><span>§${x[0]}</span> ${esc(x[1].replace(/\s*\*\s*$/, ""))}${/\*\s*$/.test(x[1]) ? " *" : ""} <em>p. ${x[2]}</em><button type="button" class="sub-ask" data-ask="${x[0]}">Ask §${x[0]}</button>${SUB[b + x[0]] ? `<div class="sub-note">${esc(SUB[b + x[0]])}</div>` : ""}</li>`).join("")}</ul>` : ""}
+    ${subs.length ? `<ul class="subs">${subs.map(x => `<li><span>§${x[0]}</span> ${esc(x[1].replace(/\s*\*\s*$/, ""))}${/\*\s*$/.test(x[1]) ? " *" : ""} <em>p. ${x[2]}</em><button type="button" class="sub-ask" data-ask="${x[0]}">Ask §${x[0]}</button>${SUBS[b + x[0]] ? `<div class="sub-note">${esc(SUBS[b + x[0]])}</div>` : ""}</li>`).join("")}</ul>` : ""}
     <div class="btns">${e && e.sim ? `<button type="button" class="btn primary" data-sim="${e.sim}">Simulate: ${esc(ST[e.sim].tab)}</button>` : ""}${e && e.also ? e.also.map(a => `<button type="button" class="btn" data-sim="${a}">${esc(ST[a].isLab ? ST[a].tab : "Station " + a.slice(1) + ": " + ST[a].tab)}</button>`).join("") : ""}${ex ? "" : `<button type="button" class="btn" data-ask="${s[0]}">Ask about §${s[0]}</button>`}</div>${ex ? "" : `<div class="sec-ai" data-s="${s[0]}"></div>`}</div></details>`;
 }
 
