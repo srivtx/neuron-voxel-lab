@@ -569,3 +569,68 @@ lab("a12mcmc", {
   },
   state() { const n = this.samples.length; return `MCMC lab (σ=${this.p.sig}, separation=${this.p.sep}, ${n} samples): accept rate ${pct(this.acc / Math.max(1, this.tries))}.`; }
 });
+
+/* Murphy 2 ch. 20, 21, 25: Diffusion forward noising & reverse score denoising in 3D */
+lab("a25diff", {
+  title: "Diffusion models: melt data into noise, then follow the score back", tab: "Diffusion & score", cam: [[0, 16, 17], [0, 0.8, 0]],
+  how: "120 points start on a clean S-curve manifold (t = 0). Slide t toward 50 to apply the closed-form forward jump xₜ = √ᾱₜ x₀ + √(1 − ᾱₜ) ε: the curve dissolves into a featureless N(0, I) cloud. The green arrows show the score field ∇ₓ log pₜ(xₜ) (which equals −ε / √(1 − ᾱₜ)): each arrow points straight back toward the data manifold. Click 'Reverse denoise step' to walk from noise back to structure.",
+  legend: () => `<b>Particles xₜ & score arrows ∇ₓ log pₜ(x)</b><div class="row"><span><i class="sw" style="background:var(--c1)"></i>current particles xₜ</span><span><i class="sw" style="background:var(--c3)"></i>score vector (−predicted ε)</span><span><i class="sw" style="background:var(--muted)"></i>clean manifold x₀</span></div>`,
+  ctl: [
+    { s: "t", label: "Diffusion step t (0 = clean, 50 = pure noise)", min: 0, max: 50, step: 1, v: 18 },
+    { seg: "arrows", label: "Score arrows", opts: [["on", "Show score ∇ log pₜ(x)"], ["off", "Hide arrows"]], v: "on" },
+    { btns: [["denoise1", "← 1 reverse denoise step", true], ["denoiseAll", "Denoise to t = 0"], ["toNoise", "Jump to pure noise (t = 50)"], ["resample", "New noise ε"]] }
+  ],
+  stats: [["ab", "Signal weight ᾱₜ"], ["snr", "SNR = ᾱₜ/(1−ᾱₜ)"], ["mse", "Distance from manifold"]],
+  init() { this.seed = 42; this.make(); },
+  abar(t) { const u = t / 50; return Math.cos(u * Math.PI * 0.49) ** 2; },
+  make() {
+    const r = rng(this.seed);
+    this.x0 = []; this.eps = [];
+    for (let i = 0; i < 110; i++) {
+      const s = (i / 109) * 2 - 1, x = s * 2.4, y = Math.sin(s * Math.PI * 1.15) * 1.65;
+      this.x0.push([x, y]);
+      this.eps.push([randn(r), randn(r)]);
+    }
+    this.refresh();
+  },
+  setT(t) {
+    this.p.t = clamp(t, 0, 50);
+    const el = $("#L-t"), o = $("#LO-t"); if (el) { el.value = this.p.t; o.textContent = this.p.t; }
+    this.refresh();
+  },
+  act(a) {
+    if (a === "denoise1") this.setT(Math.max(0, this.p.t - 5));
+    else if (a === "denoiseAll") this.setT(0);
+    else if (a === "toNoise") this.setT(50);
+    else { this.seed = (R0() * 1e9) | 0; this.make(); }
+  },
+  change() { this.refresh(); },
+  ptsAt(t) {
+    const ab = this.abar(t), sa = Math.sqrt(ab), sn = Math.sqrt(1 - ab);
+    return this.x0.map(([x, y], i) => [sa * x + sn * this.eps[i][0], sa * y + sn * this.eps[i][1]]);
+  },
+  refresh() {
+    if (!this.x0) return;
+    const t = this.p.t, ab = this.abar(t), snr = ab / Math.max(1e-4, 1 - ab), pts = this.ptsAt(t);
+    const d2 = pts.reduce((s, [x, y], i) => s + (x - this.x0[i][0]) ** 2 + (y - this.x0[i][1]) ** 2, 0) / pts.length;
+    setS("ab", f3(ab)); setS("snr", t === 0 ? "∞" : f2(snr)); setS("mse", f3(d2));
+    labExtra(`<p style="margin:8px 0 0">At step t = ${t}, <b>√ᾱₜ = ${f2(Math.sqrt(ab))}</b> of the clean signal x₀ remains and <b>√(1−ᾱₜ) = ${f2(Math.sqrt(1 - ab))}</b> is Gaussian noise ε. Training a neural network ε_θ(xₜ, t) to predict the noise ε that was added is mathematically identical to learning the score ∇ₓ log pₜ(xₜ) = −ε / √(1 − ᾱₜ) (Tweedie's identity, Murphy 2 §25.2–25.3).</p>`);
+  },
+  draw() {
+    const S = 1.9, t = this.p.t, ab = this.abar(t), sn = Math.sqrt(1 - ab), pts = this.ptsAt(t);
+    for (let i = 0; i < 18; i++) for (let j = 0; j < 18; j++) V.box((i - 8.5) * 0.72, -0.08, (j - 8.5) * 0.72, 0.7, 0.06, 0.7, (i + j) & 1 ? C.panel : C.line, null);
+    for (let i = 1; i < this.x0.length; i++) {
+      const [a0, b0] = this.x0[i - 1], [a1, b1] = this.x0[i];
+      Ln.seg(a0 * S, 0.05, -b0 * S, a1 * S, 0.05, -b1 * S, C.muted);
+    }
+    pts.forEach(([x, y], i) => {
+      const xc = clamp(x, -3.3, 3.3) * S, zc = -clamp(y, -3.3, 3.3) * S;
+      V.box(xc, 0.1, zc, 0.25, 0.35 + (1 - t / 50) * 0.5, 0.25, mix3(C.c2, C.c4, C.c1, i / pts.length), null);
+      if (this.p.arrows === "on" && t > 0 && (i % 3 === 0)) {
+        const dx = (this.x0[i][0] - x) * 0.45 * S, dz = -(this.x0[i][1] - y) * 0.45 * S;
+        Ln.seg(xc, 0.45, zc, xc + dx, 0.45, zc + dz, C.c3);
+      }
+    });
+  },
+  state() { const ab = this.abar(this.p.t); return `Diffusion lab at step t=${this.p.t}/50, ᾱ_t=${f3(ab)}, SNR=${f2(ab / Math.max(1e-4, 1 - ab))}.`; }
+});
