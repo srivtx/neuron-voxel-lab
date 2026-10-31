@@ -3,9 +3,17 @@ Usage (from repo root): python3 content/build.py"""
 import json, re, subprocess, sys, textwrap, os
 sys.path.insert(0, os.path.dirname(__file__))
 from exercises import EX
+from exercises_more import MORE_EX
 from projects import PROJECTS
 from projects_more import MORE
+EX = EX + MORE_EX
 PROJECTS = PROJECTS + MORE
+
+BOOK_META = {
+    "M": ("murphy1", "Murphy 1"),
+    "D": ("d2l", "D2L"),
+    "A": ("murphy2", "Murphy 2"),
+}
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = "srivtx/neuron-voxel-lab"
@@ -70,11 +78,14 @@ for e in EX:
         e["output"] = run(clean(e["code"]))
         e["starter"] = starter(e["code"]); e["solution"] = clean(e["code"]); del e["code"]
         print(f"ok  {e['id']:>4}  {e['title']}")
-    n = int(e["ch"][1:]); e["notebook"] = f"murphy1_ch{n:02d}_practice.ipynb"
-    by_ch.setdefault(n, []).append(e); out["exercises"].append(e)
+    bk, n = e["ch"][0], int(e["ch"][1:])
+    slug, _ = BOOK_META[bk]
+    e["notebook"] = f"{slug}_ch{n:02d}_practice.ipynb"
+    by_ch.setdefault((bk, n), []).append(e); out["exercises"].append(e)
 
-for n, items in by_ch.items():
-    cells = [md(f"# Murphy 1 · Chapter {n} · Practice\n\nFrom **Neuron Voxel Lab** ({SITE}/#M{n}). Each exercise has a question, a hint, and an answer that stays hidden until you click.\n\n**How to use:** try the starter cell first (fill in the `...` TODOs), then compare with the hidden solution cell (double-click its title to see the code), then open the answer.")]
+for (bk, n), items in by_ch.items():
+    slug, btitle = BOOK_META[bk]
+    cells = [md(f"# {btitle} · Chapter {n} · Practice\n\nFrom **Neuron Voxel Lab** ({SITE}/#{bk}{n}). Each exercise has a question, a hint, and an answer that stays hidden until you click.\n\n**How to use:** try the starter cell first (fill in the `...` TODOs), then compare with the hidden solution cell (double-click its title to see the code), then open the answer.")]
     for e in items:
         cells.append(md(f"## {e['id']} · {e['title']}  \n*Section §{e['sec']} · {e['kind']}*\n\n{e['q']}\n\n" + details("Hint", e["hint"])))
         if e["kind"] == "code":
@@ -84,7 +95,7 @@ for n, items in by_ch.items():
         else:
             cells.append(md("✍️ *Write your answer here (double-click to edit).*"))
             cells.append(md(details("Worked answer", e["answer"])))
-    json.dump(nb(cells, f"Murphy 1 ch {n} practice"), open(f"{ROOT}/notebooks/murphy1_ch{n:02d}_practice.ipynb", "w"), indent=1, ensure_ascii=False)
+    json.dump(nb(cells, f"{btitle} ch {n} practice"), open(f"{ROOT}/notebooks/{slug}_ch{n:02d}_practice.ipynb", "w"), indent=1, ensure_ascii=False)
 
 for p in PROJECTS:
     p = json.loads(json.dumps(p))
