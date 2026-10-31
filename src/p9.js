@@ -112,7 +112,11 @@ const PATHS = [
         ["pj", "p6", "Project · k-means, Gaussian mixtures and EM", "Rediscover iris species; choose K with BIC."]]],
       ["Beyond", [
         ["c", "kernel", "Concept · kernels", "Linear models in curved feature spaces."],
+        ["lab", "M17/m17svm", "Lab · kernel SVM & support vectors in 3D", "Watch RBF bumps and degree-2 polynomials separate concentric rings."],
+        ["ex", "17.1", "Exercise · Gaussian process regression from scratch", "Closed-form predictions with error bars that grow away from data."],
         ["c", "trees", "Concept · decision trees", "Questions as a model."],
+        ["lab", "M18/m18tree", "Lab · trees, random forests & boosting in 3D", "Compare a single staircase tree against bagged forests and residual boosting."],
+        ["ex", "18.1", "Exercise · gradient boosted decision stumps", "Fit successive residuals by hand."],
         ["c", "ensemble", "Concept · bagging, forests, boosting", "Many weak models, one strong one."]]]
     ] },
   { id: "math", color: "c4", title: "The maths underneath, in the order you need it", tag: "Fill gaps on demand", level: "Foundations", time: "≈ 12 hours",
@@ -159,6 +163,8 @@ const PATHS = [
         ["ch", "D9", "D2L ch. 9 · RNNs", "Memory through recurrence."],
         ["ch", "D10", "D2L ch. 10 · modern RNNs", "LSTM, GRU, seq2seq."],
         ["ch", "D11", "D2L ch. 11 · attention and transformers", "The architecture behind LLMs."],
+        ["lab", "D11/m15attn", "Lab · self-attention & multi-head routing in 3D", "Inspect query-key compatibility, causal masking and head specialisation."],
+        ["ex", "15.1", "Exercise · scaled dot-product & causal attention", "Build bidirectional and autoregressive attention matrices in NumPy."],
         ["ch", "D15", "D2L ch. 15 · NLP pretraining", "word2vec to BERT."]]],
       ["Training well", [
         ["ch", "D12", "D2L ch. 12 · optimisation algorithms", "SGD, momentum, Adam, schedules."],
@@ -172,9 +178,13 @@ const PATHS = [
       ["Inference", [
         ["ch", "A4", "Murphy 2 ch. 4 · graphical models", "Structure as a picture."],
         ["ch", "A7", "Murphy 2 ch. 7 · inference algorithms overview", "The map of methods."],
+        ["ch", "A8", "Murphy 2 ch. 8 · Kalman filtering and smoothing", "Exact sequential Gaussian tracking."],
+        ["lab", "A8/a8kalman", "Lab · Kalman filter 2D tracking in 3D", "Watch the posterior belief bell fuse physics predictions with noisy GPS pings."],
         ["ch", "A10", "Murphy 2 ch. 10 · variational inference", "Inference as optimisation."],
         ["ch", "A11", "Murphy 2 ch. 11 · Monte Carlo", "Inference by sampling."],
-        ["ch", "A12", "Murphy 2 ch. 12 · MCMC", "Random walks that find the posterior."]]],
+        ["ch", "A12", "Murphy 2 ch. 12 · MCMC", "Random walks that find the posterior."],
+        ["lab", "A12/a12mcmc", "Lab · Metropolis–Hastings MCMC in 3D", "Walk a two-peak posterior terrain and watch the visited histogram converge."],
+        ["ex", "A12.1", "Exercise · Metropolis–Hastings on a bimodal posterior", "Sample without knowing the normalising constant Z."]]],
       ["Bayesian prediction", [
         ["ch", "A17", "Murphy 2 ch. 17 · Bayesian neural networks", "Uncertainty for deep nets."],
         ["ch", "A18", "Murphy 2 ch. 18 · Gaussian processes", "Distributions over functions."]]],
@@ -184,11 +194,16 @@ const PATHS = [
         ["ch", "A22", "Murphy 2 ch. 22 · autoregressive models", "One token at a time."],
         ["ch", "A23", "Murphy 2 ch. 23 · normalizing flows", "Invertible transforms of noise."],
         ["ch", "A25", "Murphy 2 ch. 25 · diffusion models", "Learn to undo noise."],
+        ["lab", "A25/a25diff", "Lab · diffusion forward noising & reverse score in 3D", "Corrupt a 2-D manifold into Gaussian noise and follow score arrows back."],
+        ["ex", "A25.1", "Exercise · DDPM forward jump & score denoising", "Verify the closed-form √ᾱₜ x₀ + √(1−ᾱₜ) ε jump."],
         ["ch", "A26", "Murphy 2 ch. 26 · GANs", "Generator vs critic."]]],
       ["Acting and explaining", [
         ["ch", "A34", "Murphy 2 ch. 34 · decision making under uncertainty", "Bandits and beyond."],
         ["ch", "A35", "Murphy 2 ch. 35 · reinforcement learning", "Learning from reward."],
-        ["ch", "A36", "Murphy 2 ch. 36 · causality", "From correlation to intervention."]]]
+        ["lab", "A35/a35rl", "Lab · MDP gridworld & Bellman backups in 3D", "Watch state values V(s) and optimal policy arrows propagate from the goal."],
+        ["ch", "A36", "Murphy 2 ch. 36 · causality", "From correlation to intervention."],
+        ["lab", "A36/a36causal", "Lab · seeing vs doing: P(Y|X) vs P(Y|do(X)) in 3D", "See Simpson's paradox in 3D and fix confounding with backdoor adjustment."],
+        ["ex", "A36.1", "Exercise · backdoor adjustment & IPW from scratch", "Recover the true causal treatment effect under strong confounding."]]]
     ] }
 ];
 // How the paths connect: where to start, and where each leads.
