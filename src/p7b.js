@@ -420,3 +420,79 @@ lab("m18tree", {
   },
   state() { const last = this.curve ? this.curve[this.curve.length - 1] : [0, 0]; return `Trees lab (${this.p.mode}, depth=${this.p.depth}, M=${this.trees ? this.trees.length : 1}): train MSE ${f3(last[0])}, test MSE ${f3(last[1])}.`; }
 });
+
+/* Murphy 2 ch. 8 & 29: Kalman filter tracking & sensor fusion in 3D */
+lab("a8kalman", {
+  title: "Kalman filter: predict, measure, and fuse uncertainties", tab: "Kalman filter", cam: [[0, 16, 17], [0, 0.8, 0]],
+  how: "A target moves along a curved 2D path (green), but your sensor only sees noisy GPS pings (blue cubes). At each step the Kalman filter predicts where the target moved (widening its 3D Gaussian belief bell by process noise Q), then blends that prediction with the new GPS ping using the Kalman gain K = P_pred / (P_pred + R). Watch the orange filtered track stay far closer to the truth than the raw sensor.",
+  legend: () => `<b>2D trajectory + 3D posterior belief bell</b><div class="row"><span><i class="sw" style="background:var(--c3)"></i>true path</span><span><i class="sw" style="background:var(--c2)"></i>noisy GPS</span><span><i class="sw" style="background:var(--c1)"></i>Kalman estimate + belief bell</span></div>`,
+  ctl: [
+    { s: "Q", label: "Motion model noise Q", min: 0.02, max: 0.8, step: 0.02, v: 0.12, fmt: f2 },
+    { s: "R", label: "Sensor GPS noise R", min: 0.05, max: 1.5, step: 0.05, v: 0.65, fmt: f2 },
+    { btns: [["step", "1 step (predict + update)", true], ["run", "Run all 24 steps"], ["reset", "New trajectory"]] }
+  ],
+  stats: [["K", "Kalman gain K"], ["rawE", "Raw GPS RMSE"], ["kfE", "Kalman RMSE"]],
+  chart: "Distance from truth: raw GPS (blue) vs Kalman filter (orange)",
+  chartLegend: `<span><i style="background:var(--c2)"></i>raw sensor error</span><span><i style="background:var(--c1)"></i>Kalman error</span>`,
+  init() { this.seed = 21; this.reset(); },
+  reset() {
+    const r = rng(this.seed);
+    this.truth = []; this.obs = []; this.est = []; this.P = 0.4; this.K = 0.5;
+    let x = -2.6, y = -1.6;
+    for (let t = 0; t < 24; t++) {
+      const th = t * 0.22;
+      x += 0.22 * Math.cos(th * 0.7) + randn(r) * Math.sqrt(this.p.Q) * 0.35;
+      y += 0.22 * Math.sin(th) + randn(r) * Math.sqrt(this.p.Q) * 0.35;
+      x = clamp(x, -3.2, 3.2); y = clamp(y, -3.2, 3.2);
+      this.truth.push([x, y]);
+      this.obs.push([x + randn(r) * Math.sqrt(this.p.R), y + randn(r) * Math.sqrt(this.p.R)]);
+    }
+    this.est = [[this.obs[0][0], this.obs[0][1]]];
+    this.P = this.p.R;
+    for (let t = 1; t < 10; t++) this.stepOne();
+    this.refresh();
+  },
+  stepOne() {
+    const t = this.est.length; if (t >= this.truth.length) return;
+    const prev = this.est[t - 1], th = t * 0.22;
+    const xp = [prev[0] + 0.22 * Math.cos(th * 0.7), prev[1] + 0.22 * Math.sin(th)];
+    const Ppred = this.P + this.p.Q;
+    const K = Ppred / (Ppred + this.p.R);
+    const y = this.obs[t];
+    this.est.push([xp[0] + K * (y[0] - xp[0]), xp[1] + K * (y[1] - xp[1])]);
+    this.P = (1 - K) * Ppred; this.K = K;
+  },
+  act(a) { if (a === "step") this.stepOne(); else if (a === "run") while (this.est.length < this.truth.length) this.stepOne(); else { this.seed = (R0() * 1e9) | 0; this.reset(); return; } this.refresh(); },
+  change() { const n = this.est.length; this.reset(); while (this.est.length < n) this.stepOne(); this.refresh(); },
+  refresh() {
+    const n = this.est.length, rErr = [], kErr = [];
+    for (let i = 0; i < n; i++) {
+      rErr.push(Math.hypot(this.obs[i][0] - this.truth[i][0], this.obs[i][1] - this.truth[i][1]));
+      kErr.push(Math.hypot(this.est[i][0] - this.truth[i][0], this.est[i][1] - this.truth[i][1]));
+    }
+    const rmse = arr => Math.sqrt(arr.reduce((s, v) => s + v * v, 0) / (arr.length || 1));
+    setS("K", f2(this.K)); setS("rawE", f2(rmse(rErr))); setS("kfE", f2(rmse(kErr)));
+    if (cur === this) lineChart($("#lab-chart"), [{ data: rErr, color: tok("--c2") }, { data: kErr, color: tok("--c1") }], { ymin: 0, xlabel: `step 1 → ${n}` });
+    labExtra(`<p style="margin:8px 0 0">At step ${n}, Kalman gain K = P_pred / (P_pred + R) = <b>${f2(this.K)}</b>: the filter puts ${pct(this.K)} weight on the new GPS measurement and ${pct(1 - this.K)} on its motion prediction. Raise sensor noise R and K shrinks toward 0 (smooth track, trusts physics); raise Q and K approaches 1 (trusts the sensor, Murphy 2 §8.2).</p>`);
+  },
+  draw() {
+    const S = 1.85, n = this.est.length, curEst = this.est[n - 1], sig2 = Math.max(0.08, this.P * 2.2);
+    for (let i = 0; i < 18; i++) for (let j = 0; j < 18; j++) {
+      const gx = -3.2 + (i + 0.5) * 6.4 / 18, gy = -3.2 + (j + 0.5) * 6.4 / 18;
+      const d2 = (gx - curEst[0]) ** 2 + (gy - curEst[1]) ** 2, bh = Math.exp(-d2 / (2 * sig2)) * 2.4;
+      V.box(gx * S, -0.08, -gy * S, 0.62, 0.06 + bh, 0.62, bh > 0.18 ? mix(C.c1, C.panel, 0.45) : ((i + j) & 1 ? C.panel : C.line), null);
+    }
+    for (let i = 0; i < n; i++) {
+      const [tx, ty] = this.truth[i], [ox, oy] = this.obs[i], [ex, ey] = this.est[i];
+      V.box(tx * S, 0.15, -ty * S, 0.24, 0.24, 0.24, C.c3, null);
+      V.box(ox * S, 0.15, -oy * S, 0.22, 0.22, 0.22, C.c2, null);
+      V.box(ex * S, 0.28, -ey * S, 0.3, 0.3, 0.3, C.c1, null);
+      if (i > 0) {
+        Ln.seg(this.truth[i - 1][0] * S, 0.22, -this.truth[i - 1][1] * S, tx * S, 0.22, -ty * S, C.c3);
+        Ln.seg(this.est[i - 1][0] * S, 0.38, -this.est[i - 1][1] * S, ex * S, 0.38, -ey * S, C.c1);
+      }
+    }
+    pin(curEst[0] * S, 2.8, -curEst[1] * S, `x̂_${n} (K=${f2(this.K)})`, "hot");
+  },
+  state() { return `Kalman filter lab (Q=${this.p.Q}, R=${this.p.R}, step ${this.est.length}/${this.truth.length}): Kalman gain K=${f2(this.K)}, posterior var P=${f3(this.P)}.`; }
+});
