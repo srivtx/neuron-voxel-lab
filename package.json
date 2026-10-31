@@ -1,0 +1,6 @@
+{
+  "name": "neuron-voxel-lab",
+  "private": true,
+  "type": "module",
+  "scripts": { "build:site": "bash src/build.sh", "dev": "vercel dev" }
+}

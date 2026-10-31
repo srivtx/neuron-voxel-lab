@@ -1,0 +1,540 @@
+<title>Neuron Voxel Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Caveat:wght@600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: chalkboard lab. 3D voxel board on the left, a graph-paper notebook panel on the right; stacks on phones.
+   Dark-first (chalk on slate); light = ink on graph paper. Voxel colours are read from these tokens. */
+:root{
+  --bg:#121a17; --panel:#17211d; --card:#1c2823; --ink:#ebf0e7; --muted:#9db1a6; --line:#2c3c35;
+  --c1:#f4938f; --c2:#86c3f2; --c3:#8fdba4; --c4:#f3d470; --c5:#6f857b; --skin:#f3e7d5;
+  --grid:rgba(235,240,231,.035);
+  --f-display:"Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --f-body:"Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --f-hand:"Caveat", "Segoe Print", cursive;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){
+  --bg:#eef1ea; --panel:#f6f8f3; --card:#fcfdfa; --ink:#18231e; --muted:#58675f; --line:#cfd8cf;
+  --c1:#cc4a52; --c2:#2c6db0; --c3:#1d8a52; --c4:#b7860c; --c5:#94a39a; --skin:#f3e7d5; --grid:rgba(24,35,30,.05); color-scheme:light}}
+:root[data-theme="light"]{
+  --bg:#eef1ea; --panel:#f6f8f3; --card:#fcfdfa; --ink:#18231e; --muted:#58675f; --line:#cfd8cf;
+  --c1:#cc4a52; --c2:#2c6db0; --c3:#1d8a52; --c4:#b7860c; --c5:#94a39a; --skin:#f3e7d5; --grid:rgba(24,35,30,.05); color-scheme:light}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.5}
+.app{height:100%;display:flex;flex-direction:column}
+.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 20px;padding-block:10px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));border-bottom:1px solid var(--line);background:var(--panel)}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.logo{width:30px;height:30px;flex:none;display:grid;grid-template-columns:repeat(3,1fr);gap:2px}
+.logo i{background:var(--c2);border-radius:1px}.logo i:nth-child(5){background:var(--c1)}.logo i:nth-child(2),.logo i:nth-child(8){background:var(--c3)}.logo i:nth-child(1),.logo i:nth-child(3),.logo i:nth-child(7),.logo i:nth-child(9){opacity:.25}
+h1{font-family:var(--f-display);font-weight:700;font-size:22px;line-height:1;margin:0}
+.brand p{margin:3px 0 0;color:var(--muted);font-size:12.5px}
+.tabs{display:flex;gap:3px;overflow-x:auto;max-width:100%;scrollbar-width:thin}
+.tabs button{font:500 13px var(--f-body);color:var(--muted);background:transparent;border:1px solid transparent;border-radius:6px;padding:6px 9px;cursor:pointer;display:flex;align-items:center;gap:7px;white-space:nowrap}
+.tabs button i{font:700 13px var(--f-display);font-style:normal;width:20px;height:20px;display:grid;place-items:center;border-radius:3px;background:var(--line);color:var(--ink)}
+.tabs button[aria-selected="true"]{color:var(--ink);border-color:var(--line);background:var(--card)}
+.tabs button[aria-selected="true"] i{background:var(--c2);color:#fff}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--c2);outline-offset:2px}
+.hdr-tools{display:flex;gap:6px;flex-wrap:wrap;min-width:0}
+.nb-btn{font:600 12.5px var(--f-body);background:var(--card);border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:6px 10px;cursor:pointer;white-space:nowrap}
+.nb-btn.go{background:var(--c3);border-color:var(--c3);color:#fff;text-decoration:none;display:inline-flex;align-items:center}
+.lab{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 460px;position:relative}
+.stage{position:relative;min-height:0;overflow:hidden;touch-action:none}
+#gl{width:100%;height:100%;display:block;cursor:grab}
+.legend{position:absolute;top:12px;left:max(12px,env(safe-area-inset-left,0px));background:color-mix(in srgb,var(--card) 90%,transparent);border:1px solid var(--line);border-radius:6px;padding:8px 10px;font-size:12px;max-width:min(330px,calc(100% - 24px));pointer-events:none}
+.legend b{font-family:var(--f-display);font-weight:500;font-size:13.5px;display:block;margin-bottom:2px}
+.legend .sw{display:inline-block;width:10px;height:10px;border-radius:1px;vertical-align:-1px;margin-right:4px}
+.legend .row{display:flex;flex-wrap:wrap;gap:4px 12px;color:var(--muted)}
+.hint{position:absolute;bottom:12px;left:max(12px,env(safe-area-inset-left,0px));font-size:11.5px;color:var(--muted);background:color-mix(in srgb,var(--card) 80%,transparent);padding:4px 8px;border-radius:4px;pointer-events:none}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--bg);font:12px var(--f-mono);padding:5px 8px;border-radius:4px;white-space:pre;transform:translate(12px,-120%);z-index:4}
+#pins{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.pin{position:absolute;transform:translate(-50%,calc(-100% - 10px));background:var(--ink);color:var(--bg);font:600 11.5px var(--f-body);padding:3px 7px;border-radius:5px;white-space:nowrap}
+.pin::after{content:"";position:absolute;left:50%;top:100%;width:2px;height:10px;background:inherit;transform:translateX(-50%)}
+.pin.hot{background:var(--c1);color:#fff}.pin.soft{background:var(--c4);color:#1b1b1b}.pin.cool{background:var(--c2);color:#fff}.pin.ok{background:var(--c3);color:#fff}
+.pin.flat{transform:translate(-50%,-50%);font:600 11px var(--f-mono);background:color-mix(in srgb,var(--card) 88%,transparent);color:var(--ink);border:1px solid var(--line)}.pin.flat::after{display:none}
+.panel{min-width:0;overflow-y:auto;border-left:1px solid var(--line);background:var(--panel);padding-block:18px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.station{display:flex;flex-direction:column;gap:16px}
+.eyebrow{font:600 11px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0}
+h2{font-family:var(--f-display);font-weight:700;font-size:26px;line-height:1.1;margin:4px 0 8px;text-wrap:balance}
+h3{font:600 13px var(--f-body);margin:0 0 8px}
+.lede{margin:0;max-width:62ch}
+.lede em{font-style:normal;background:color-mix(in srgb,var(--c4) 28%,transparent);padding:0 2px;border-radius:2px}
+.lede code,.note code,.ans code{font:12px var(--f-mono);background:var(--panel);padding:0 3px;border-radius:3px;color:var(--ink)}
+.block{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px;min-width:0}
+.ctl{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:8px 10px;margin-bottom:10px}
+.ctl:last-child{margin-bottom:0}
+.ctl label{font-size:12.5px;color:var(--muted);white-space:nowrap}
+.ctl output{font:600 12.5px var(--f-mono);min-width:60px;text-align:right;font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--c2);min-width:0}
+.btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.btns:first-child{margin-top:0}
+.btn{font:500 12.5px var(--f-body);color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:6px 11px;cursor:pointer}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--c2);border-color:var(--c2);color:#fff}
+.btn[disabled]{opacity:.5;cursor:default}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:5px;overflow:hidden;flex-wrap:wrap}
+.seg button{font:500 12px var(--f-body);background:transparent;color:var(--muted);border:0;padding:5px 9px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.stats div{background:var(--card);padding:9px 10px;min-width:0}
+.stats span{display:block;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stats b{font:600 17px var(--f-mono);font-variant-numeric:tabular-nums}
+.stats b.ok{color:var(--c3)}.stats b.no{color:var(--c1)}
+.chart{width:100%;height:170px;display:block}
+.chartlegend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:11.5px;color:var(--muted);margin-top:6px}
+.chartlegend i{display:inline-block;width:14px;height:3px;vertical-align:3px;margin-right:5px;border-radius:2px}
+.note{font-size:12.5px;color:var(--muted);margin:8px 0 0}
+.goals{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.goals li{display:grid;grid-template-columns:18px 1fr;gap:10px;align-items:start;font-size:13px}
+.goals .box{width:16px;height:16px;border:2px solid var(--line);border-radius:3px;margin-top:2px;transition:background .25s}
+.goals li.done .box{background:var(--c3);border-color:var(--c3);box-shadow:inset 0 0 0 2px var(--card)}
+.goals li.done{color:var(--muted)}
+/* book / chapter navigation */
+.booknav{display:flex;gap:8px;flex-wrap:wrap;align-items:center;min-width:0}
+.chnav{display:flex;gap:4px;align-items:center;min-width:0;flex:1 1 260px}
+.pill{font:600 11px var(--f-mono);letter-spacing:.04em;padding:3px 8px;border-radius:10px;background:var(--panel);border:1px solid var(--line);color:var(--muted)}
+.pill.ok{background:color-mix(in srgb,var(--c3) 16%,var(--card));border-color:color-mix(in srgb,var(--c3) 45%,var(--line));color:var(--ink)}
+.secs{display:flex;flex-direction:column;gap:6px}
+.sec{background:var(--card);border:1px solid var(--line);border-radius:8px;min-width:0}
+.sec>summary{cursor:pointer;display:grid;grid-template-columns:auto 1fr auto auto;gap:10px;align-items:baseline;padding:10px 12px;list-style:none}
+.sec>summary::-webkit-details-marker{display:none}
+.sec[open]>summary{border-bottom:1px dashed var(--line)}
+.sn{font:600 12px var(--f-mono);color:var(--c2)}.st{font-weight:600;font-size:13.5px;min-width:0}.sp{font:11.5px var(--f-mono);color:var(--muted);white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:2px;background:var(--line);display:inline-block}.dot.ok{background:var(--c3)}
+.sec-body{padding:10px 12px 12px;font-size:13.5px;display:flex;flex-direction:column;gap:6px;min-width:0}.sec-body>p{margin:0}
+.subs{list-style:none;margin:4px 0 0;padding:0;display:flex;flex-direction:column;gap:2px;font-size:12.5px;color:var(--muted)}
+.subs span{font:11.5px var(--f-mono);color:var(--c2);margin-right:4px}.subs em{font-style:normal;font:11px var(--f-mono);margin-left:4px}
+.btn[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+/* neuron diagram */
+.flow{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font:12.5px var(--f-mono)}
+.flow .nd{border:1px solid var(--line);border-radius:6px;padding:5px 8px;background:var(--panel);font-variant-numeric:tabular-nums}
+.flow .nd b{display:block;font:600 10px var(--f-mono);color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.flow .ar{color:var(--c2)}
+/* equation decoder */
+.eq{font:600 19px var(--f-mono);line-height:1.6;padding:10px 12px;background:var(--panel);border-radius:6px;overflow-x:auto;white-space:nowrap}
+.sym{cursor:pointer;border-bottom:2px solid transparent;padding:0 1px;border-radius:2px}
+.sym:hover,.sym.on{background:color-mix(in srgb,var(--c4) 30%,transparent);border-bottom-color:var(--c4)}
+.sym.k1{color:var(--c1)}.sym.k2{color:var(--c2)}.sym.k3{color:var(--c3)}.sym.k4{color:var(--c4)}
+.eq-say{font-size:13px;margin:8px 0 0;min-height:2.6em}
+.eq-say b{font-family:var(--f-mono)}
+.dl{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:13px;margin:10px 0 0}
+.dl dt{font:600 11px var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding-top:2px}
+.dl dd{margin:0}
+.refs{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted);margin-top:10px;border-top:1px dashed var(--line);padding-top:8px}
+.refs b{color:var(--ink);font-weight:600}
+/* code */
+.code-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+pre.code{font:12px/1.55 var(--f-mono);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px;margin:8px 0 0;overflow-x:auto;max-height:420px;tab-size:4}
+pre.code .cm{color:var(--muted);font-style:italic}
+pre.code .kw{color:var(--c2);font-weight:600}
+pre.code .nu{color:var(--c1)}
+/* ask */
+.ask textarea{width:100%;box-sizing:border-box;font:13px var(--f-body);padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink);resize:vertical;min-height:58px}
+.chips{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0}
+.chip{font:12px var(--f-body);background:var(--panel);border:1px dashed var(--line);border-radius:12px;padding:3px 9px;cursor:pointer;color:var(--ink);text-align:left}
+.chip:hover{border-color:var(--c2)}
+.thread{display:flex;flex-direction:column;gap:10px;margin-top:10px}
+.q{font-size:13px;font-weight:600;border-left:3px solid var(--c2);padding-left:9px}
+.ans{font-size:13.5px;line-height:1.55;border-left:3px solid var(--c3);padding-left:9px;min-width:0}
+.ans p{margin:0 0 8px}.ans pre{font:12px/1.5 var(--f-mono);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:8px;overflow-x:auto;margin:0 0 8px}
+.ans.wait{color:var(--muted)}
+.ask-off{font-size:12.5px;color:var(--muted)}
+/* mini canvases */
+.thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:6px}
+.thumbs canvas{width:100%;aspect-ratio:1;image-rendering:pixelated;border:1px solid var(--line);border-radius:4px;display:block;background:var(--panel)}
+.pairs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:5px}
+.pairs canvas{width:100%;aspect-ratio:1;image-rendering:pixelated;border-radius:3px;display:block}
+.pairs span{font:10px var(--f-mono);color:var(--muted);grid-column:1/-1}
+.big-face{width:120px;height:120px;image-rendering:pixelated;border:1px solid var(--line);border-radius:6px;display:block}
+.row2{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+table.t{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
+table.t th,table.t td{padding:5px 6px;text-align:right;border-bottom:1px solid var(--line)}
+table.t th:first-child,table.t td:first-child{text-align:left}
+table.t td{font-family:var(--f-mono)}
+table.t th{font-weight:600;font-size:11.5px;color:var(--muted)}
+table.t tr.now td{background:color-mix(in srgb,var(--c4) 18%,transparent)}
+.tablewrap{overflow-x:auto}
+.callout{font-size:13px;padding:9px 11px;border-radius:6px;background:color-mix(in srgb,var(--c4) 14%,var(--card));border:1px solid color-mix(in srgb,var(--c4) 40%,var(--line))}
+/* overlay */
+.over{position:fixed;inset:0;z-index:30;background:color-mix(in srgb,var(--bg) 72%,transparent);display:grid;place-items:center;
+  padding:max(12px,env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) 12px max(12px,env(safe-area-inset-left,0px))}
+.over-card{background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 50px rgba(10,20,40,.25);width:min(760px,100%);max-height:100%;overflow:auto;padding:22px 24px;display:flex;flex-direction:column;gap:12px}
+.over-card h2{margin:0}
+.six{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.six button{text-align:left;border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:9px 11px;cursor:pointer;color:var(--ink);display:flex;flex-direction:column;gap:3px}
+.six button:hover{border-color:var(--c2)}
+.six code{font:600 13.5px var(--f-mono);color:var(--c2)}
+.six span{font-size:12.5px;color:var(--muted)}
+.toast{position:absolute;top:12px;right:max(12px,env(safe-area-inset-right,0px));z-index:6;background:var(--c3);color:#fff;font:600 12.5px var(--f-body);padding:8px 12px;border-radius:6px;pointer-events:none;max-width:calc(100% - 24px)}
+.prog{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin-top:6px}.prog i{display:block;height:100%;background:var(--c3);width:0}
+/* ===== redesign layer: chalk + graph paper, every control custom ===== */
+body{background-color:var(--bg)}
+.panel{background-color:var(--panel);background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:22px 22px}
+.top{background:var(--panel)}
+h1{font-family:var(--f-display);font-weight:800;letter-spacing:-.01em;font-size:21px}
+h2{font-family:var(--f-display);font-weight:800;letter-spacing:-.015em;font-size:28px;line-height:1.08}
+.eyebrow{font-family:var(--f-mono);font-weight:600;letter-spacing:.07em}
+.logo i{border-radius:2px}
+.block,.sec,.live{border-radius:10px;box-shadow:0 1px 0 var(--line)}
+.btn,.nb-btn,.iconbtn,.crumb,.chip,.booktab,.chtile,.hit,.ref{transition:border-color .15s,background .15s,transform .1s}
+.btn:active,.nb-btn:active,.iconbtn:active,.chtile:active{transform:translateY(1px)}
+.btn{font:700 12.5px var(--f-body);border-radius:7px;padding:7px 12px;background:var(--card)}
+.btn.primary{background:var(--c4);border-color:var(--c4);color:#1b1a10}
+.btn.ai{border-style:dashed;border-color:var(--c3);color:var(--ink)}
+.nb-btn{font:700 12.5px var(--f-body);border-radius:7px}
+.nb-btn.go{background:var(--c3);border-color:var(--c3);color:#0d1f15}
+.booknav{display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-width:0;flex:1 1 420px;justify-content:center}
+.modesw{display:inline-flex;background:var(--card);border:1px solid var(--line);border-radius:9px;padding:3px;gap:2px}
+.modesw button{font:700 12.5px var(--f-body);border:0;background:transparent;color:var(--muted);padding:6px 12px;border-radius:6px;cursor:pointer}
+.modesw button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.chnav{display:flex;align-items:stretch;gap:4px;min-width:0;flex:1 1 300px;max-width:520px}
+.iconbtn{font:700 18px var(--f-display);width:36px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;cursor:pointer;display:grid;place-items:center;flex:none}
+.iconbtn:hover,.crumb:hover,.btn:hover{border-color:var(--c4)}
+.crumb{flex:1;min-width:0;display:flex;align-items:center;gap:10px;text-align:left;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:5px 10px;cursor:pointer}
+.crumb .ct{display:flex;flex-direction:column;min-width:0;flex:1}.crumb small{font:600 10.5px var(--f-mono);color:var(--muted);letter-spacing:.04em}
+.crumb b{font:700 14px var(--f-display);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.crumb i{font-style:normal;color:var(--muted)}
+.spine{width:8px;align-self:stretch;min-height:26px;border-radius:2px;flex:none}.spine.sM{background:var(--c2)}.spine.sD{background:var(--c4)}.spine.sA{background:var(--c1)}
+/* custom range */
+input[type=range]{-webkit-appearance:none;appearance:none;background:transparent;height:22px;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:4px;background:var(--line);border-radius:2px}
+input[type=range]::-moz-range-track{height:4px;background:var(--line);border-radius:2px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;margin-top:-6px;background:var(--c4);border:2px solid var(--bg);border-radius:3px;box-shadow:0 0 0 1px var(--c4)}
+input[type=range]::-moz-range-thumb{width:13px;height:13px;background:var(--c4);border:2px solid var(--bg);border-radius:3px}
+input[type=range]:focus-visible{outline:2px solid var(--c4);outline-offset:2px}
+.text-in{font:14px var(--f-body);width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
+.text-in:focus{outline:none;border-color:var(--c4);box-shadow:0 0 0 3px color-mix(in srgb,var(--c4) 25%,transparent)}
+.ask textarea{font:14px var(--f-body)}
+/* easy layer */
+.easy{font-size:15px;line-height:1.55;margin:0;padding:10px 12px;border-radius:8px;background:color-mix(in srgb,var(--c3) 11%,var(--card));border:1px solid color-mix(in srgb,var(--c3) 35%,var(--line))}
+.easy .tag,.tag{font:600 19px/1 var(--f-hand);color:var(--c3);margin-right:8px}
+/* live equations */
+.live{background:var(--card);border:1px solid color-mix(in srgb,var(--c4) 45%,var(--line));padding:14px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.live .eq,.block .eq{white-space:normal;line-height:1.9}
+.live h4{font:700 16px var(--f-display);margin:0}
+.live .ctl{margin-bottom:4px}
+.live table td.mid{font-size:11.5px;color:var(--muted);text-align:left}
+.live-out .note{margin-top:6px}
+/* chapter page pieces */
+.sec{background:var(--card)}
+.sec>summary:hover .st{color:var(--c4)}
+.ai-out{font-size:14px;line-height:1.55;border-left:3px solid var(--c3);padding-left:10px;margin-top:6px}.ai-out:empty{display:none}.ai-out p{margin:0 0 8px}
+.ai-out pre{font:12px/1.5 var(--f-mono);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:8px;overflow-x:auto}
+/* drawers */
+.drawer{position:fixed;inset:0;z-index:40;background:color-mix(in srgb,var(--bg) 70%,transparent);display:flex;justify-content:flex-start;padding:max(10px,env(safe-area-inset-top,0px)) max(10px,env(safe-area-inset-right,0px)) 10px max(10px,env(safe-area-inset-left,0px))}
+.drawer-card{width:min(860px,100%);max-height:100%;overflow:auto;background:var(--panel);background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:22px 22px;border:1px solid var(--line);border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.35);padding:18px 20px;display:flex;flex-direction:column;gap:14px}
+.drawer-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.drawer-head h2{margin:2px 0 0}
+.drawer-body{display:flex;flex-direction:column;gap:14px;min-width:0}
+.libtop{display:flex;flex-direction:column;gap:10px}
+.booktabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.booktab{display:flex;gap:10px;align-items:stretch;text-align:left;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:10px;cursor:pointer;min-width:0}
+.booktab b{display:block;font:800 15px var(--f-display)}.booktab small{display:block;color:var(--muted);font-size:12px}
+.booktab.on{border-color:var(--c4);box-shadow:inset 0 0 0 1px var(--c4)}
+.search{display:flex;align-items:center;gap:10px}.search span{font:600 18px var(--f-hand);color:var(--c4)}
+.chgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px}
+.chtile{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto auto;gap:2px 10px;text-align:left;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:10px 12px;cursor:pointer;min-width:0}
+.chtile:hover{border-color:var(--c4)}.chtile.cur{border-color:var(--c4);background:color-mix(in srgb,var(--c4) 10%,var(--card))}
+.chn{grid-row:1/4;font:800 30px/1 var(--f-display);color:var(--muted)}.cht{font:700 13.5px var(--f-body);min-width:0}.chm{font:11px var(--f-mono);color:var(--muted)}
+.bar{height:4px;background:var(--line);border-radius:2px;overflow:hidden;margin-top:4px}.bar i{display:block;height:100%;background:var(--c3)}
+.lh{font:700 13px var(--f-display);margin:4px 0}
+.hits{display:flex;flex-direction:column;gap:4px}
+.hit{display:flex;justify-content:space-between;gap:10px;text-align:left;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:7px 10px;cursor:pointer;min-width:0}.hit small{color:var(--muted);white-space:nowrap}.hit:hover{border-color:var(--c4)}
+.symgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px}
+.symcard{display:grid;grid-template-columns:76px 1fr;gap:10px;border:1px solid var(--line);background:var(--card);border-radius:10px;padding:10px;min-width:0}
+.symcard .sy{font:600 20px var(--f-mono);color:var(--c4);display:grid;place-items:center;background:var(--panel);border-radius:8px;text-align:center;padding:4px;overflow-wrap:anywhere}
+.symcard p{margin:2px 0;font-size:13px}.symcard .ex{color:var(--muted)}.symcard code{font:11.5px var(--f-mono);color:var(--c2)}
+/* concept view */
+.links{display:grid;grid-template-columns:1fr 1fr;gap:12px}.links>div{display:flex;flex-wrap:wrap;gap:5px;align-content:flex-start}.links .eyebrow{width:100%}
+.chip.ok{border:1px solid var(--c3);border-style:solid}.chip.hot{border:1px solid var(--c1);border-style:solid}
+.refs2{display:flex;flex-direction:column;gap:5px}
+.ref{display:flex;align-items:stretch;gap:9px;text-align:left;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:8px;padding:7px 10px;cursor:pointer;flex-wrap:wrap}.ref b{font:700 13px var(--f-body)}.ref small{color:var(--muted);flex-basis:100%;padding-left:17px;margin-top:-2px}.ref:hover{border-color:var(--c4)}
+.path{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:3px;font-size:13.5px}
+.path button{font:inherit;color:var(--ink);background:none;border:0;border-bottom:1px dashed var(--muted);padding:0;cursor:pointer}.path small{color:var(--muted);margin-left:6px;font:11px var(--f-mono)}
+.path li.here b{color:var(--c4)}
+.legend{background:color-mix(in srgb,var(--card) 88%,transparent)}
+.legend b{font:700 13.5px var(--f-display)}
+.pin{font-family:var(--f-body)}
+@media (max-width:900px){
+  .app{height:auto;min-height:100%}
+  .lab{grid-template-columns:minmax(0,1fr)}
+  .stage{height:58vh;min-height:320px}
+  .panel{overflow:visible;border-left:0;border-top:1px solid var(--line)}
+  .six{grid-template-columns:1fr}
+}
+@media (max-width:640px){.booktabs{grid-template-columns:1fr}.links{grid-template-columns:1fr}.booknav{justify-content:flex-start}}
+@media (max-width:480px){.tabs button{padding:5px 7px;font-size:12px}.stats b{font-size:15px}h2{font-size:23px}.pairs{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+
+<div class="app">
+<header class="top">
+  <div class="brand">
+    <div class="logo" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div><h1>Neuron Voxel Lab</h1><p>Three books, every chapter, built from the ground floor</p></div>
+  </div>
+  <nav class="booknav" aria-label="Navigate">
+    <span class="modesw" role="group" aria-label="View"><button type="button" data-m="course" aria-pressed="true">Course</button><button type="button" data-m="concept" aria-pressed="false">Concept map</button></span>
+    <span class="chnav"><button class="iconbtn" type="button" id="prev-ch" aria-label="Previous chapter">‹</button><button class="crumb" type="button" id="crumb" aria-label="Open library"></button><button class="iconbtn" type="button" id="next-ch" aria-label="Next chapter">›</button></span>
+  </nav>
+  <div class="hdr-tools"><button class="nb-btn" type="button" id="sym-btn">Σ Symbols</button><button class="nb-btn" type="button" id="why-btn">Why so many equations?</button><a class="nb-btn go" id="colab-link" href="https://colab.research.google.com/drive/1yXAtKDZzJz9Gk9mFBzmEnaV02zr4tthC" target="_blank" rel="noopener">Colab notebook ↗</a></div>
+</header>
+
+<main class="lab">
+  <section class="stage" id="stage" aria-label="3D view">
+    <canvas id="gl"></canvas>
+    <div id="pins"></div>
+    <div class="legend" id="legend"></div>
+    <div class="hint">Drag to orbit · right-drag to pan · scroll or pinch to zoom · tap blocks</div>
+    <div class="tip" id="tip" hidden></div>
+    <div class="toast" id="toast" hidden></div>
+  </section>
+
+  <aside class="panel" id="panel">
+  <div id="back-bar" hidden style="margin-bottom:12px"></div>
+  <section class="station" id="chapview" hidden></section>
+  <section class="station" id="conceptview" hidden></section>
+
+  <!-- ===== 1 NEURON ===== -->
+  <section class="station" data-station="s1" hidden>
+    <div>
+      <p class="eyebrow">Station 1 · One neuron</p>
+      <h2>A neuron is a weighted vote, then a squash</h2>
+      <p class="lede">The floor is every possible input <code>(x₁, x₂)</code>. The height of each floating tile is what one neuron says about that input, from 0 (blue, low) to 1 (orange, tall). Orange blocks are examples labelled 1 and float at height 1; blue blocks are labelled 0 and sit on the floor. <em>Move the three sliders until the surface touches every block.</em></p>
+    </div>
+    <div class="block">
+      <div class="ctl"><label for="s1-w1">Weight w₁</label><input id="s1-w1" type="range" min="-4" max="4" step="0.05" value="0.6"><output id="o1-w1"></output></div>
+      <div class="ctl"><label for="s1-w2">Weight w₂</label><input id="s1-w2" type="range" min="-4" max="4" step="0.05" value="-0.4"><output id="o1-w2"></output></div>
+      <div class="ctl"><label for="s1-b">Bias b</label><input id="s1-b" type="range" min="-4" max="4" step="0.05" value="0"><output id="o1-b"></output></div>
+      <div class="btns"><button class="btn" id="s1-new">New examples</button><span class="seg" role="group" aria-label="Squash"><button id="s1-sig" aria-pressed="true">Sigmoid squash</button><button id="s1-step" aria-pressed="false">Hard step</button></span></div>
+    </div>
+    <div class="block">
+      <h3>Inside the neuron, for the example you tapped</h3>
+      <div class="flow" id="s1-flow"></div>
+      <p class="note">Tap any floating block in the 3D view to send it through the neuron.</p>
+    </div>
+    <div class="stats"><div><span>Correct</span><b id="s1-acc">–</b></div><div><span>Boundary tilt</span><b id="s1-ang">–</b></div><div><span>Steepness |w|</span><b id="s1-st">–</b></div></div>
+    <div class="block"><h3>Try this</h3><ul class="goals" id="g1">
+      <li data-g="all"><span class="box"></span><span>Get every example right by hand.</span></li>
+      <li data-g="steep"><span class="box"></span><span>Keep the same boundary line but make the cliff steeper. (Hint: scale all three numbers together.)</span></li>
+      <li data-g="step"><span class="box"></span><span>Switch to the hard step. Notice the surface has no slope anywhere, so station 3 could never slide downhill on it.</span></li>
+    </ul></div>
+    <div class="common" data-for="s1"></div>
+  </section>
+
+  <!-- ===== 2 LOSS ===== -->
+  <section class="station" data-station="s2" hidden>
+    <div>
+      <p class="eyebrow">Station 2 · Loss</p>
+      <h2>One number for "how wrong"</h2>
+      <p class="lede">Same neuron, same examples. Each red column now runs from what the neuron said to what it should have said. To improve, the computer needs a <em>single number</em> to push down. That number is the loss: add up a penalty for every column. Pick how the penalty grows and watch which examples dominate.</p>
+    </div>
+    <div class="block">
+      <div class="btns"><span class="seg" role="group" aria-label="Loss"><button id="s2-bce" aria-pressed="true">Cross-entropy  −log p</button><button id="s2-mse" aria-pressed="false">Squared error  (y−a)²</button></span></div>
+      <div class="ctl" style="margin-top:12px"><label for="s2-w1">w₁</label><input id="s2-w1" type="range" min="-4" max="4" step="0.05"><output id="o2-w1"></output></div>
+      <div class="ctl"><label for="s2-w2">w₂</label><input id="s2-w2" type="range" min="-4" max="4" step="0.05"><output id="o2-w2"></output></div>
+      <div class="ctl"><label for="s2-b">b</label><input id="s2-b" type="range" min="-4" max="4" step="0.05"><output id="o2-b"></output></div>
+      <p class="note">These are the same weights as station 1. Change them here and station 1 changes too.</p>
+    </div>
+    <div class="stats"><div><span>Total loss (mean)</span><b id="s2-L">–</b></div><div><span>Worst example</span><b id="s2-worst">–</b></div><div><span>Share from worst 3</span><b id="s2-share">–</b></div></div>
+    <div class="block">
+      <h3>Penalty per example, sorted</h3>
+      <canvas class="chart" id="s2-chart"></canvas>
+      <p class="note">With cross-entropy, a confident wrong answer (p near 0 for the true class) costs almost without limit: −log(0.01) = 4.6, −log(0.001) = 6.9. Squared error caps every example at 1, so it shrugs at the very mistakes you most want fixed.</p>
+    </div>
+    <div class="common" data-for="s2"></div>
+  </section>
+
+  <!-- ===== 3 GRADIENT DESCENT ===== -->
+  <section class="station" data-station="s3" hidden>
+    <div>
+      <p class="eyebrow">Station 3 · Gradient descent</p>
+      <h2>Learning is rolling downhill</h2>
+      <p class="lede">This terrain is the loss from station 2 for every possible pair of weights <code>(w₁, w₂)</code>. The yellow block is <em>your neuron</em>: its position is its weights. The slope under it is the gradient. Each step moves the block a little way downhill. Nobody solves an equation; the computer just keeps stepping.</p>
+    </div>
+    <div class="block">
+      <div class="ctl"><label for="s3-lr">Step size η</label><input id="s3-lr" type="range" min="-2.5" max="1.3" step="0.01" value="-0.3"><output id="o3-lr"></output></div>
+      <div class="btns"><button class="btn primary" id="s3-run">Roll</button><button class="btn" id="s3-step">One step</button><button class="btn" id="s3-reset">Back to start</button></div>
+      <p class="note">Tap anywhere on the terrain to drop the neuron there. Try a huge step size and watch it overshoot.</p>
+    </div>
+    <div class="stats"><div><span>Steps</span><b id="s3-n">0</b></div><div><span>Loss</span><b id="s3-L">–</b></div><div><span>Slope |∇L|</span><b id="s3-g">–</b></div></div>
+    <div class="block"><h3>The step, with this moment's numbers</h3><div class="flow" id="s3-flow"></div></div>
+    <div class="block"><h3>Loss per step</h3><canvas class="chart" id="s3-chart"></canvas></div>
+    <div class="block"><h3>Try this</h3><ul class="goals" id="g3">
+      <li data-g="conv"><span class="box"></span><span>Reach loss below 0.40.</span></li>
+      <li data-g="boom"><span class="box"></span><span>Pick a step size big enough that the loss goes up.</span></li>
+      <li data-g="slow"><span class="box"></span><span>Pick one so small that 100 steps barely move the block.</span></li>
+    </ul></div>
+    <div class="common" data-for="s3"></div>
+  </section>
+
+  <!-- ===== 4 BACKPROP ===== -->
+  <section class="station" data-station="s4" hidden>
+    <div>
+      <p class="eyebrow">Station 4 · Backpropagation</p>
+      <h2>Blame flows backwards, one link at a time</h2>
+      <p class="lede">Station 3 needed the slope. Here is where it comes from. The neuron is split into tiny steps, each one a block. Run <b>forward</b> to compute the loss. Then run <b>backward</b>: each block asks "if I nudged this, how much would the loss move?" and passes the answer to the blocks that fed it. <em>Every rule is a one-line fact from school calculus.</em> Yellow towers are the answers.</p>
+    </div>
+    <div class="block">
+      <div class="btns"><button class="btn primary" id="s4-f">Forward one step</button><button class="btn primary" id="s4-b">Backward one step</button><button class="btn" id="s4-all">Do everything</button><button class="btn" id="s4-reset">Reset</button></div>
+      <div class="ctl" style="margin-top:12px"><label for="s4-x1">Input x₁</label><input id="s4-x1" type="range" min="-3" max="3" step="0.1" value="1.5"><output id="o4-x1"></output></div>
+      <div class="ctl"><label for="s4-x2">Input x₂</label><input id="s4-x2" type="range" min="-3" max="3" step="0.1" value="-0.5"><output id="o4-x2"></output></div>
+      <div class="ctl"><label for="s4-y">True label y</label><input id="s4-y" type="range" min="0" max="1" step="1" value="1"><output id="o4-y"></output></div>
+    </div>
+    <div class="block"><h3>The graph, node by node</h3><div class="tablewrap"><table class="t" id="s4-table"></table></div>
+      <p class="callout" id="s4-say" style="margin:10px 0 0">Press <b>Forward one step</b>.</p></div>
+    <div class="block"><h3>Don't trust it. Check it.</h3>
+      <p class="note" style="margin:0 0 8px">Nudge w₁ by a tiny h, recompute the loss both ways, and measure the slope directly. If backprop is right, the two numbers match.</p>
+      <div class="btns" style="margin:0"><button class="btn" id="s4-check">Measure slope of w₁ numerically</button></div>
+      <p class="note" id="s4-checkout"></p></div>
+    <div class="common" data-for="s4"></div>
+  </section>
+
+  <!-- ===== 5 HIDDEN LAYER ===== -->
+  <section class="station" data-station="s5" hidden>
+    <div>
+      <p class="eyebrow">Station 5 · Many neurons</p>
+      <h2>One neuron draws a line. A layer of them draws anything.</h2>
+      <p class="lede">One neuron can only split the floor with a straight cliff. Here, H neurons each draw their own cliff (the small tiles below), and one more neuron combines them. Training is stations 2 to 4 running on every weight at once. <em>Turn the squash off</em> and watch it fail: stacked straight lines stay a straight line.</p>
+    </div>
+    <div class="block">
+      <div class="btns"><span class="seg" role="group" aria-label="Data"><button data-d="xor" aria-pressed="true">XOR</button><button data-d="circle" aria-pressed="false">Circle</button><button data-d="spiral" aria-pressed="false">Spiral</button></span>
+      <span class="seg" role="group" aria-label="Squash"><button data-a="tanh" aria-pressed="true">tanh</button><button data-a="relu" aria-pressed="false">ReLU</button><button data-a="none" aria-pressed="false">none</button></span></div>
+      <div class="ctl" style="margin-top:12px"><label for="s5-h">Hidden neurons H</label><input id="s5-h" type="range" min="1" max="16" step="1" value="6"><output id="o5-h"></output></div>
+      <div class="ctl"><label for="s5-lr">Step size</label><input id="s5-lr" type="range" min="-3" max="-0.7" step="0.05" value="-1.5"><output id="o5-lr"></output></div>
+      <div class="btns"><button class="btn primary" id="s5-run">Pause</button><button class="btn" id="s5-reset">New random weights</button></div>
+    </div>
+    <div class="stats"><div><span>Steps</span><b id="s5-n">0</b></div><div><span>Loss</span><b id="s5-L">–</b></div><div><span>Accuracy</span><b id="s5-acc">–</b></div></div>
+    <div class="block"><h3>What each hidden neuron sees</h3><div class="thumbs" id="s5-thumbs"></div>
+      <p class="note">Each tile is one hidden neuron's opinion over the same floor. Every one is a single straight cliff. The output neuron adds them up with its own weights.</p></div>
+    <div class="block"><h3>Try this</h3><ul class="goals" id="g5">
+      <li data-g="xor"><span class="box"></span><span>Solve XOR (accuracy 100%) with as few hidden neurons as you can. Is 2 enough?</span></li>
+      <li data-g="lin"><span class="box"></span><span>Set squash to <b>none</b> on XOR. Watch it stall below 80%.</span></li>
+      <li data-g="spiral"><span class="box"></span><span>Get the spiral above 95%.</span></li>
+    </ul></div>
+    <div class="common" data-for="s5"></div>
+  </section>
+
+  <!-- ===== 6 IMAGES ===== -->
+  <section class="station" data-station="s6" hidden>
+    <div>
+      <p class="eyebrow">Station 6 · Images are lists of numbers</p>
+      <h2>A face is 144 numbers in a row</h2>
+      <p class="lede">A 12 × 12 grey image is just 144 brightness values. Dark pixels stand tall here. A neuron doesn't see a face; it sees a list. Press <b>Flatten</b> to unroll the grid into that list. Then look at the neuron's weights as an image too: <em>the dot product is "how much does this picture overlap my template?"</em></p>
+    </div>
+    <div class="block">
+      <div class="btns"><span class="seg" role="group" aria-label="Show"><button data-v="img" aria-pressed="true">Image x</button><button data-v="w" aria-pressed="false">Weights w</button><button data-v="prod" aria-pressed="false">x × w, pixel by pixel</button></span></div>
+      <div class="btns"><button class="btn primary" id="s6-flat">Flatten</button><button class="btn" id="s6-rand">Random face</button><button class="btn" id="s6-smile">Smiling face</button><button class="btn" id="s6-frown">Frowning face</button><button class="btn" id="s6-clear">Blank</button></div>
+      <p class="note">Tap tiles to paint or erase ink.</p>
+    </div>
+    <div class="stats"><div><span>Σ x·w</span><b id="s6-z">–</b></div><div><span>σ(Σ + b)</span><b id="s6-a">–</b></div><div><span>Smile detector says</span><b id="s6-say">–</b></div></div>
+    <div class="block"><h3>The list the neuron actually receives</h3><pre class="code" id="s6-vec" style="max-height:140px"></pre></div>
+    <div class="common" data-for="s6"></div>
+  </section>
+
+  <!-- ===== 7 AUTOENCODER ===== -->
+  <section class="station" data-station="s7" hidden>
+    <div>
+      <p class="eyebrow">Station 7 · The autoencoder (your screenshot)</p>
+      <h2>Squeeze a face through a few numbers and rebuild it</h2>
+      <p class="lede">Left: an original face. Right: the network's output. In the middle, 144 numbers are squeezed to 32, then to the <em>bottleneck</em> of L numbers, then rebuilt to 32 and back to 144. The only goal is <b>output = input</b>. With L much smaller than 144, it can't copy pixels, so it has to discover what faces have in common.</p>
+    </div>
+    <div class="block">
+      <div class="ctl"><label for="s7-L">Bottleneck L</label><input id="s7-L" type="range" min="1" max="24" step="1" value="4"><output id="o7-L"></output></div>
+      <div class="btns"><button class="btn primary" id="s7-run">Pause</button><button class="btn" id="s7-reset">Restart training</button><button class="btn" id="s7-next">Next face</button>
+        <span class="seg" role="group" aria-label="Network"><button id="s7-nl" aria-pressed="true">With squash</button><button id="s7-lin" aria-pressed="false">Linear (no squash)</button></span></div>
+      <p class="note">Changing L restarts training. Tap the original's tiles to draw your own face and see how it is rebuilt.</p>
+    </div>
+    <div class="stats"><div><span>Steps</span><b id="s7-n">0</b></div><div><span>Error (yours)</span><b id="s7-L1">–</b></div><div><span>PCA error, same L</span><b id="s7-pca">–</b></div></div>
+    <div class="block"><h3>Reconstruction error while training</h3><canvas class="chart" id="s7-chart"></canvas>
+      <div class="chartlegend"><span><i style="background:var(--c2)"></i>autoencoder</span><span><i style="background:var(--c4)"></i>PCA with the same L (the best any straight-line squeeze can do)</span></div></div>
+    <div class="block"><h3>Six faces, original above, rebuilt below</h3><div class="pairs" id="s7-pairs"></div></div>
+    <div class="block"><h3>Try this</h3><ul class="goals" id="g7">
+      <li data-g="pca"><span class="box"></span><span>Switch to <b>Linear</b> and let it train. It should creep down to the yellow PCA line and stop there. That's Murphy §20.3.1: a linear autoencoder <i>is</i> PCA.</span></li>
+      <li data-g="beat"><span class="box"></span><span>Switch back to <b>With squash</b> at L = 3 and beat PCA.</span></li>
+      <li data-g="one"><span class="box"></span><span>Set L = 1. What single feature does it choose to keep?</span></li>
+    </ul></div>
+    <div class="common" data-for="s7"></div>
+  </section>
+
+  <!-- ===== 8 LATENT ===== -->
+  <section class="station" data-station="s8" hidden>
+    <div>
+      <p class="eyebrow">Station 8 · The bottleneck as a map</p>
+      <h2>Every face gets an address. Walk the map.</h2>
+      <p class="lede">An autoencoder with only <b>2</b> bottleneck numbers puts every face at a point on the floor. Orange dots are smiling faces, blue are frowning, a yellow cap means eyebags. Nobody told it about smiles. <em>Tap anywhere on the floor</em> to ask the decoder "what face lives here?" This is the CelebA <code>eyebags</code> idea from your screenshot, at toy size.</p>
+    </div>
+    <div class="block">
+      <div class="prog" id="s8-prog"><i></i></div><p class="note" id="s8-status">Training the 2-number autoencoder…</p>
+      <div class="row2" style="margin-top:10px"><canvas class="big-face" id="s8-face" width="12" height="12"></canvas>
+        <div style="flex:1;min-width:180px"><div class="ctl"><label for="s8-sm">+ smile direction</label><input id="s8-sm" type="range" min="-2" max="2" step="0.05" value="0"><output id="o8-sm"></output></div>
+        <div class="ctl"><label for="s8-bg">+ eyebags direction</label><input id="s8-bg" type="range" min="-2" max="2" step="0.05" value="0"><output id="o8-bg"></output></div>
+        <p class="note" id="s8-z">z = –</p></div></div>
+    </div>
+    <div class="block"><h3>How an attribute direction is made</h3>
+      <p class="note" style="margin:0">Average the addresses of all smiling faces. Average the addresses of all frowning faces. Subtract. The arrow you get points from "frown" to "smile". Adding it to any face's address makes that face smile. The arrows are drawn on the floor in orange (smile) and yellow (eyebags). In the notebook you do the same with CelebA's real <code>Smiling</code>, <code>Young</code> and <code>Bags_Under_Eyes</code> labels and 128 numbers instead of 2.</p></div>
+    <div class="common" data-for="s8"></div>
+  </section>
+
+  <!-- ===== 9 CONVOLUTION ===== -->
+  <section class="station" data-station="s9" hidden>
+    <div>
+      <p class="eyebrow">Station 9 · Convolution</p>
+      <h2>One tiny neuron, slid across the whole image</h2>
+      <p class="lede">For a real 64 × 64 colour face, a full layer that looks at every pixel at once needs millions of weights. A convolution uses <em>one small 3 × 3 neuron</em> and slides it to every position, writing its answer into a new grid. Same weights everywhere, so an eye detector works wherever the eye is. This is the layer the Colab notebook uses on CelebA.</p>
+    </div>
+    <div class="block">
+      <div class="btns"><span class="seg" role="group" aria-label="Kernel"><button data-k="vert" aria-pressed="true">Vertical edge</button><button data-k="horiz" aria-pressed="false">Horizontal edge</button><button data-k="blur" aria-pressed="false">Blur</button><button data-k="dot" aria-pressed="false">Dark-dot finder</button></span></div>
+      <div class="ctl" style="margin-top:12px"><label for="s9-sp">Slide speed</label><input id="s9-sp" type="range" min="1" max="40" step="1" value="8"><output id="o9-sp"></output></div>
+      <div class="btns"><button class="btn primary" id="s9-run">Pause</button><button class="btn" id="s9-step">One position</button><button class="btn" id="s9-face">New face</button></div>
+    </div>
+    <div class="block"><h3>At this position</h3><div class="flow" id="s9-flow"></div></div>
+    <div class="block"><h3>Why it matters: weights needed</h3><div class="tablewrap"><table class="t">
+      <thead><tr><th>Layer</th><th>12×12 grey</th><th>64×64 colour</th></tr></thead>
+      <tbody><tr><td>Every output looks at every pixel</td><td>20,736</td><td>150,994,944</td></tr>
+      <tr><td>One 3×3 kernel, slid</td><td>9</td><td>27 per filter</td></tr></tbody></table></div>
+      <p class="note">Full layer: (inputs) × (outputs). 64·64·3 = 12,288 inputs to 12,288 outputs is 12,288² ≈ 151 million weights. A 3×3 colour kernel is 3·3·3 = 27. The notebook uses 32 to 256 such filters per layer.</p></div>
+    <div class="common" data-for="s9"></div>
+  </section>
+
+  <!-- ===== 10 GPU ===== -->
+  <section class="station" data-station="s10" hidden>
+    <div>
+      <p class="eyebrow">Station 10 · The real thing on your L4</p>
+      <h2>The CelebA autoencoder, block by block</h2>
+      <p class="lede">This is the exact network in the Colab notebook. Each slab is one tensor; its footprint is the image size and its height is the number of channels. The encoder trades <em>space for channels</em> until 64 × 64 × 3 = 12,288 numbers become a 128-number code. Tap a slab to see the line of code that makes it.</p>
+    </div>
+    <div class="block" id="s10-info"><h3>Tap a slab</h3><p class="note" style="margin:0">Start with the input on the left.</p></div>
+    <div class="block"><h3>Why the GPU</h3>
+      <p class="note" style="margin:0" id="s10-flops"></p></div>
+    <div class="block"><h3>Notebook route</h3><ol style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:5px;font-size:13px">
+      <li><b>Part 1:</b> the station 7 toy autoencoder in pure NumPy, every gradient written by hand, then a numerical check.</li>
+      <li><b>Part 2:</b> the same net in PyTorch; check that autograd gives the same gradients as your hand-written ones.</li>
+      <li><b>Part 3:</b> stream 50,000 CelebA faces, crop to 64 × 64, keep them on the GPU.</li>
+      <li><b>Part 4:</b> train the conv autoencoder above with bf16 on the L4.</li>
+      <li><b>Part 5:</b> bottleneck experiment: 16, 64 and 256 numbers.</li>
+      <li><b>Part 6:</b> attribute vectors (<code>Smiling</code>, <code>Bags_Under_Eyes</code>, <code>Young</code>) and face interpolation.</li>
+    </ol></div>
+    <div class="common" data-for="s10"></div>
+  </section>
+
+  </aside>
+</main>
+</div>
+
+<div class="over" id="why" hidden>
+  <div class="over-card" role="dialog" aria-labelledby="why-h">
+    <p class="eyebrow">Before you start</p>
+    <h2 id="why-h">Why the books have so many equations</h2>
+    <p class="lede">An equation is a sentence squeezed down. <code>z = w·x + b</code> means "multiply each input by how much it matters, add them up, then add a nudge." The books aren't writing garbage. They are writing three kinds of thing, and you only need the first kind to build:</p>
+    <dl class="dl">
+      <dt>Recipe</dt><dd>What to compute. There are about six of these, listed below. Everything in Murphy 1, D2L and most of Murphy 2 is these six, combined, plus one new idea (probability distributions over the knobs themselves).</dd>
+      <dt>Bookkeeping</dt><dd>The same recipe written for every index, layer and batch: Σ over i, superscripts for layer ℓ, matrices instead of loops. It looks like new math, but it's the same recipe written for every case at once.</dd>
+      <dt>Proof</dt><dd>Why the recipe works or when it fails. "Squared error = assume Gaussian noise" (Murphy §4.2). "A linear autoencoder = PCA" (§20.3.1). You can skip these on the first pass and come back once the simulation has made you ask "but why?"</dd>
+    </dl>
+    <p class="lede">So the order here is: <b>see it move, run the code, then read the equation as a caption</b>. Every station has an equation you can tap symbol by symbol.</p>
+    <div class="six" id="six"></div>
+    <div class="btns"><button class="btn primary" id="why-go">Start at station 1</button><button class="btn" id="why-close">Close</button></div>
+  </div>
+</div>
