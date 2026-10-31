@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="favicon.svg" width="88" alt="Neuron Voxel Lab logo: three input cubes wired into one neuron cube">
+<img src="favicon.svg" width="88" alt="Neuron Voxel Lab logo: a 3×3 voxel grid, three inputs feeding one output">
 
 # Neuron Voxel Lab
 
