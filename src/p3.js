@@ -542,7 +542,8 @@ const RULES = `You are the tutor inside "Neuron Voxel Lab", an interactive site 
 - Derive, don't assert. Start from a concrete number or picture (use the current simulation state below when there is one), then generalise.
 - Explain every symbol the first time you use it. When an equation appears, say in words what it computes and why it has that shape, and what breaks if a piece is removed.
 - If the books use heavy notation for it, say whether that notation is the recipe itself, bookkeeping (indices, matrices) or a proof, and which one he needs now.
-- Under 300 words unless he asks for more. Plain text, short paragraphs. Write math with plain characters (x², Σ, √, ·, ∂), no LaTeX. Put small NumPy snippets in \`\`\` fences when code helps.`;
+- Under 300 words unless he asks for more, and always finish: end on a complete sentence, never mid-list or mid-equation.
+- Short paragraphs; "- " lists and "### " headings are fine; **bold** only for a few key terms and always closed. Write math with plain characters (x², Σ, √, ·, ∂), never LaTeX or $…$. Put small NumPy snippets in \`\`\` fences when code helps.`;
 function makeAsk(host, ctxFn, chips) {
   host.innerHTML = `<h3>Ask about this</h3><div class="chips">${chips.map(c => `<button class="chip" type="button">${esc(c)}</button>`).join("")}</div>
     <textarea class="text-in" rows="2" placeholder="Ask anything: why a formula looks like that, what a line of code does, how this connects to something else…"></textarea>
@@ -558,7 +559,7 @@ function makeAsk(host, ctxFn, chips) {
     const msg = `${turns.length ? "" : RULES + "\n\n"}${ctxFn()}\n\nQuestion: ${q}`;
     try {
       const j = await askAI([...turns, { role: "user", content: msg }]);
-      ad.classList.remove("wait"); ad.innerHTML = md(j.text) + `<p class="note">answered by ${esc(j.model || "AI")}</p>`;
+      ad.classList.remove("wait"); ad.innerHTML = md(j.text) + (j.truncated ? `<p class="cut">The answer ran long and was cut here. Ask "continue" to get the rest.</p>` : "") + `<p class="note">answered by ${esc(j.model || "AI")}</p>`;
       turns.push({ role: "user", content: msg }, { role: "assistant", content: j.text }); if (turns.length > 12) turns = [turns[0], turns[1], ...turns.slice(-8)]; clr.hidden = false;
     } catch (e) { ad.classList.remove("wait"); ad.innerHTML = ""; ad.append(aiErrorHTML(e, () => { ta.value = q; th.removeChild(qd); th.removeChild(ad); ask(); })); }
     finally { busy = false; go.disabled = false; }
