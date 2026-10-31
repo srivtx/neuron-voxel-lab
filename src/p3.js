@@ -430,12 +430,111 @@ function hl(code) {
     return a + (c ? `<span class="cm">${c}</span>` : "");
   }).join("\n");
 }
+/* ---- AI answer renderer: a small, forgiving Markdown subset ----
+   Models write **bold** across words, headings, lists, LaTeX they were told not to use, and fences they forget to close.
+   Everything is escaped first; only the constructs below become HTML. */
+const TEX = { alpha: "α", beta: "β", gamma: "γ", delta: "δ", epsilon: "ε", varepsilon: "ε", zeta: "ζ", eta: "η", theta: "θ", vartheta: "ϑ", iota: "ι", kappa: "κ", lambda: "λ", mu: "μ", nu: "ν", xi: "ξ", pi: "π", rho: "ρ", sigma: "σ", tau: "τ", upsilon: "υ", phi: "φ", varphi: "φ", chi: "χ", psi: "ψ", omega: "ω",
+  Gamma: "Γ", Delta: "Δ", Theta: "Θ", Lambda: "Λ", Xi: "Ξ", Pi: "Π", Sigma: "Σ", Phi: "Φ", Psi: "Ψ", Omega: "Ω",
+  sum: "Σ", prod: "∏", int: "∫", partial: "∂", nabla: "∇", cdot: "·", cdots: "⋯", ldots: "…", dots: "…", times: "×", div: "÷", pm: "±", mp: "∓",
+  leq: "≤", le: "≤", geq: "≥", ge: "≥", neq: "≠", ne: "≠", approx: "≈", sim: "~", propto: "∝", equiv: "≡", infty: "∞",
+  to: "→", rightarrow: "→", leftarrow: "←", Rightarrow: "⇒", implies: "⇒", iff: "⇔", mapsto: "↦", gets: "←",
+  in: "∈", notin: "∉", subset: "⊂", subseteq: "⊆", cup: "∪", cap: "∩", forall: "∀", exists: "∃", emptyset: "∅",
+  mid: "|", vert: "|", Vert: "‖", "|": "‖", langle: "⟨", rangle: "⟩", top: "ᵀ", circ: "∘", odot: "⊙", otimes: "⊗", oplus: "⊕", star: "*", ast: "*",
+  log: "log", ln: "ln", exp: "exp", sin: "sin", cos: "cos", tan: "tan", max: "max", min: "min", arg: "arg", argmax: "argmax", argmin: "argmin", det: "det", tr: "tr", lim: "lim", sup: "sup", inf: "inf", E: "E",
+  quad: "  ", qquad: "  ", ",": " ", ";": " ", ":": " ", "!": "", " ": " ", "{": "{", "}": "}", "%": "%", "_": "_", "#": "#", "&": "&" };
+const SUP = { 0: "⁰", 1: "¹", 2: "²", 3: "³", 4: "⁴", 5: "⁵", 6: "⁶", 7: "⁷", 8: "⁸", 9: "⁹", "+": "⁺", "-": "⁻", "−": "⁻", "=": "⁼", "(": "⁽", ")": "⁾", n: "ⁿ", i: "ⁱ", T: "ᵀ", t: "ᵗ", k: "ᵏ", x: "ˣ", d: "ᵈ", m: "ᵐ", z: "ᶻ", a: "ᵃ", b: "ᵇ", N: "ᴺ", K: "ᴷ", D: "ᴰ", "*": "*", "′": "′" };
+const SUB = { 0: "₀", 1: "₁", 2: "₂", 3: "₃", 4: "₄", 5: "₅", 6: "₆", 7: "₇", 8: "₈", 9: "₉", "+": "₊", "-": "₋", "−": "₋", "=": "₌", "(": "₍", ")": "₎", i: "ᵢ", j: "ⱼ", k: "ₖ", n: "ₙ", t: "ₜ", m: "ₘ", x: "ₓ", a: "ₐ", e: "ₑ", o: "ₒ", r: "ᵣ", s: "ₛ", l: "ₗ", p: "ₚ", h: "ₕ", u: "ᵤ", v: "ᵥ" };
+function scriptify(s, map) { const ch = [...s]; return ch.every(c => map[c]) ? ch.map(c => map[c]).join("") : null; }
+// read one {balanced} group (or a single token) starting at s[i]; returns [content, nextIndex]
+function texGroup(s, i) {
+  while (s[i] === " ") i++;
+  if (s[i] !== "{") { const m = /^(\\[A-Za-z]+|.)/.exec(s.slice(i)); return m ? [m[1], i + m[1].length] : ["", i]; }
+  let d = 0, j = i;
+  for (; j < s.length; j++) { if (s[j] === "{") d++; else if (s[j] === "}" && --d === 0) break; }
+  return [s.slice(i + 1, j), j + 1];
+}
+function texCmd(s, name, fn) {
+  const re = new RegExp("\\\\" + name + "(?![A-Za-z])");
+  for (let guard = 0, m; guard < 40 && (m = re.exec(s)); guard++) {
+    const [a, i1] = texGroup(s, m.index + m[0].length), r = fn.length > 1 ? texGroup(s, i1) : null;
+    s = s.slice(0, m.index) + fn(a, r && r[0]) + s.slice(r ? r[1] : i1);
+  }
+  return s;
+}
+const texWrap = a => (a = a.trim(), /^[\w.′\u0300-\u036f]+$|^[α-ωΑ-Ω]$/.test(a) ? a : "(" + a + ")");
+function texToText(s, isMath) {
+  // \frac{a}{b} → a/b (parenthesised when the parts are compound), \sqrt{x} → √x, accents, font commands
+  for (const f of ["frac", "dfrac", "tfrac"]) s = texCmd(s, f, (a, b) => ` ${texWrap(texToText(a, isMath))}/${texWrap(texToText(b, isMath))} `);
+  s = texCmd(s, "sqrt", a => "√" + texWrap(texToText(a, isMath)));
+  s = s.replace(/\\(?:hat|widehat)\s*\{?(\w)\}?/g, "$1\u0302").replace(/\\(?:bar|overline)\s*\{?(\w)\}?/g, "$1\u0304").replace(/\\tilde\s*\{?(\w)\}?/g, "$1\u0303").replace(/\\vec\s*\{?(\w)\}?/g, "$1")
+    .replace(/\\(?:mathbf|mathrm|mathit|mathcal|mathbb|boldsymbol|bm|text|textbf|textit|operatorname|mathsf)\s*\{([^{}]*)\}/g, "$1")
+    .replace(/\\(?:left|right|big|Big|bigg|Bigg)\s*([()[\]|.]|\\[{}|])/g, (m, d) => d === "." ? "" : d.replace("\\", ""))
+    .replace(/\\([A-Za-z]+|[,;:! {}%_#&|])/g, (m, w) => w in TEX ? TEX[w] : m);
+  if (isMath) {
+    s = s.replace(/\^\{([^{}]+)\}/g, (m, a) => scriptify(a, SUP) || ([...a].length === 1 ? "^" + a : "^(" + a + ")")).replace(/\^([\w+\-−*′])/g, (m, a) => SUP[a] || m)
+      .replace(/_\{([^{}]+)\}/g, (m, a) => scriptify(a, SUB) || ([...a].length === 1 ? a : "_" + a)).replace(/_([\w+\-α-ω])/g, (m, a) => SUB[a] || ((/[α-ω]/.test(a)) ? a : m))
+      .replace(/[{}]/g, "").replace(/\s*&\s*/g, " ").replace(/\\\\/g, " ");
+  }
+  return s.replace(/(\w|\))\^(\d{1,3})\b/g, (m, a, d) => a + scriptify(d, SUP)).replace(/ {2,}/g, " ").replace(/\( /g, "(").replace(/ \)/g, ")").replace(/ ([.,;:])(?=\s|$)/g, "$1");
+}
+function deLatex(s) {
+  // math delimiters: $$…$$, \[…\], \(…\), and $…$ only when it really looks like math (so "$5 and $10" survives)
+  return s.replace(/\$\$([\s\S]+?)\$\$/g, (m, a) => texToText(a, true).trim()).replace(/\\\[([\s\S]+?)\\\]/g, (m, a) => texToText(a, true).trim()).replace(/\\\(([\s\S]+?)\\\)/g, (m, a) => texToText(a, true).trim())
+    .replace(/\$([^$\n]{1,200}?)\$/g, (m, a) => /[\\^_{}=]|^\s*[A-Za-zα-ω]\s*$/.test(a) ? texToText(a, true).trim() : m)
+    .replace(/[^\n]*\\[A-Za-z]+[^\n]*/g, line => texToText(line, false));
+}
+function mdInline(s) {
+  // split out `code` first so nothing inside it is touched
+  return String(s).split(/(`[^`\n]+`)/).map((part, i) => {
+    if (i % 2) return `<code>${esc(part.slice(1, -1))}</code>`;
+    let h = esc(deLatex(part).replace(/(\w|\))\^(\d{1,3})\b/g, (m, a, d) => a + scriptify(d, SUP)));
+    h = h.replace(/\*\*(?=\S)([^\n]*?\S)\*\*/g, "<b>$1</b>").replace(/(^|[^\w])__(?=\S)([^\n]*?\S)__(?!\w)/g, "$1<b>$2</b>")
+      .replace(/(^|[^\w*\\])\*(?=[^\s*])([^*\n]*?[^\s*\\])\*(?![\w*])/g, "$1<i>$2</i>").replace(/(^|[\s(])_(?=[^\s_])([^_\n]*?[^\s_])_(?=[\s.,;:!?)]|$)/g, "$1<i>$2</i>")
+      .replace(/ ?\*\*(?!\w) ?|\*\*/g, m => m.length > 2 ? " " : "").replace(/(^|\s)\*(?=\s)/g, "$1").replace(/~~(?=\S)([^\n]*?\S)~~/g, "<s>$1</s>");
+    return h;
+  }).join("");
+}
+function mdTable(rows) {
+  const cells = r => r.trim().replace(/^\||\|$/g, "").split("|").map(c => mdInline(c.trim()));
+  const head = cells(rows[0]), body = rows.slice(2).map(cells);
+  return `<div class="md-tbl"><table class="t"><tr>${head.map(c => `<th>${c}</th>`).join("")}</tr>${body.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join("")}</tr>`).join("")}</table></div>`;
+}
 function md(t) {
-  const parts = String(t).split(/```[a-z]*\n?/); let h = "";
-  parts.forEach((p, i) => {
-    if (i % 2) { h += `<pre>${esc(p.replace(/\n$/, ""))}</pre>`; return; }
-    p.split(/\n{2,}/).forEach(par => { if (!par.trim()) return; h += "<p>" + esc(par).replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>").replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\n/g, "<br>") + "</p>"; });
-  });
+  const lines = String(t || "").replace(/\r\n?/g, "\n").replace(/<think>[\s\S]*?<\/think>\s*/gi, "").split("\n");
+  let h = "", para = [], list = null, code = null, quote = [];
+  const flushPara = () => { if (para.length) { h += `<p>${para.map(mdInline).join("<br>")}</p>`; para = []; } };
+  const flushList = () => { if (list) { h += `<${list.tag}${list.tag === "ol" && list.start !== 1 ? ` start="${list.start}"` : ""}>${list.items.map(it => `<li${it.sub ? ' class="sub"' : ""}>${it.html.map(mdInline).join("<br>")}</li>`).join("")}</${list.tag}>`; list = null; } };
+  const flushQuote = () => { if (quote.length) { h += `<blockquote>${md(quote.join("\n"))}</blockquote>`; quote = []; } };
+  const flush = () => { flushPara(); flushList(); flushQuote(); };
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (code) {
+      if (/^\s*(```|~~~)\s*$/.test(line)) { h += `<pre>${/^(py|python|numpy|)$/.test(code.lang) ? hl(code.body.join("\n")) : esc(code.body.join("\n"))}</pre>`; code = null; }
+      else code.body.push(line);
+      continue;
+    }
+    let m;
+    if ((m = /^\s*(```|~~~)\s*([\w+-]*)/.exec(line))) { flush(); code = { lang: m[2].toLowerCase(), body: [] }; continue; }
+    if (!line.trim()) { flush(); continue; }
+    if ((m = /^\s{0,3}>\s?(.*)$/.exec(line))) { flushPara(); flushList(); quote.push(m[1]); continue; }
+    flushQuote();
+    if ((m = /^\s{0,3}(#{1,6})\s+(.+?)\s*#*\s*$/.exec(line))) { flush(); h += `<h4 class="md-h${m[1].length > 3 ? " small" : ""}">${mdInline(m[2].replace(/^\*\*(.*)\*\*$/, "$1"))}</h4>`; continue; }
+    if (/^\s{0,3}([-*_])(\s*\1){2,}\s*$/.test(line)) { flush(); h += "<hr>"; continue; }
+    if (/^\s*\|.*\|\s*$/.test(line) && /^\s*\|?\s*:?-{2,}/.test(lines[i + 1] || "")) {
+      flush(); const rows = [line]; i++; rows.push(lines[i]); while (i + 1 < lines.length && /^\s*\|.*\|\s*$/.test(lines[i + 1])) rows.push(lines[++i]);
+      h += mdTable(rows); continue;
+    }
+    if ((m = /^(\s*)(?:[-*+•])\s+(.*)$/.exec(line)) || (m = /^(\s*)(\d{1,3})[.)]\s+(.*)$/.exec(line))) {
+      const ordered = m.length === 4, text = ordered ? m[3] : m[2], tag = ordered ? "ol" : "ul", sub = m[1].replace(/\t/g, "  ").length >= 2;
+      flushPara(); if (list && list.tag !== tag && !sub) flushList();
+      if (!list) list = { tag, items: [], start: ordered ? +m[2] : 1 };
+      list.items.push({ html: [text], sub }); continue;
+    }
+    if (list && /^\s{2,}\S/.test(line)) { list.items[list.items.length - 1].html.push(line.trim()); continue; }
+    flushList(); para.push(line);
+  }
+  if (code) h += `<pre>${esc(code.body.join("\n"))}</pre>`; // a fence the model never closed
+  flush();
   return h;
 }
 
