@@ -4,6 +4,8 @@ import json, re, subprocess, sys, textwrap, os
 sys.path.insert(0, os.path.dirname(__file__))
 from exercises import EX
 from projects import PROJECTS
+from projects_more import MORE
+PROJECTS = PROJECTS + MORE
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = "srivtx/neuron-voxel-lab"

@@ -510,7 +510,7 @@ function boot() {
   readTheme();
   $("#crumb").onclick = () => openLibrary();
   $$(".modesw button").forEach(b => b.onclick = () => b.dataset.m === "concept" ? goConcept(selC) : goChapter(curChap || "M1"));
-  $("#sym-btn").onclick = openSymbols; $("#proj-btn").onclick = openProjects; updateProgressBadge();
+  $("#sym-btn").onclick = openSymbols; $("#proj-btn").onclick = openProjects; updateProgressBadge(); $("#paths-btn").onclick = openPaths; $("#why-paths").onclick = () => { $("#why").hidden = true; openPaths(); };
   $("#prev-ch").onclick = () => stepChapter(-1); $("#next-ch").onclick = () => stepChapter(1);
   ORDER.forEach(id => { ST[id].init && ST[id].init(); });
   syncers.forEach(f => f());
@@ -531,9 +531,10 @@ function boot() {
     else if (e.key === "t") goConcept(selC);
     else if (e.key === "c") goChapter(curChap || "M1");
     else if (e.key === "p") openProjects();
+    else if (e.key === "l") openPaths();
     else if (e.key === "s") openSymbols();
     else if (e.key === "?") { const old = $(".kbd-help"); if (old) { old.remove(); return; } const k = document.createElement("div"); k.className = "kbd-help"; k.setAttribute("role", "dialog");
-      k.innerHTML = [["/", "search the library"], ["← →", "previous / next chapter"], ["c", "course view"], ["t", "skill tree"], ["p", "build projects"], ["s", "symbols decoder"], ["Esc", "close panels"], ["?", "toggle this help"]].map(([a, b]) => `<div><kbd>${a}</kbd>${b}</div>`).join(""); document.body.appendChild(k); }
+      k.innerHTML = [["/", "search the library"], ["l", "learning paths"], ["← →", "previous / next chapter"], ["c", "course view"], ["t", "skill tree"], ["p", "build projects"], ["s", "symbols decoder"], ["Esc", "close panels"], ["?", "toggle this help"]].map(([a, b]) => `<div><kbd>${a}</kbd>${b}</div>`).join(""); document.body.appendChild(k); }
   });
   let start = location.hash.slice(1), seen = null;
   try { seen = localStorage.getItem("nvl-station"); } catch (e) { }
@@ -546,6 +547,7 @@ function boot() {
   addEventListener("hashchange", () => { const h = location.hash.slice(1); if (h.startsWith("c-") && CI[h.slice(2)]) { if (h.slice(2) !== selC || mode !== "concept") goConcept(h.slice(2)); } else if (isCh(h) && (h !== curChap || mode !== "course")) goChapter(h); else if (ST[h] && !ST[h].isLab && cur.id !== h) goStation(h); });
   const mq = matchMedia("(prefers-color-scheme: dark)"); mq.addEventListener && mq.addEventListener("change", readTheme);
   new MutationObserver(readTheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  updatePathPill();
   resize(); requestAnimationFrame(loop);
 }
 let last = performance.now();

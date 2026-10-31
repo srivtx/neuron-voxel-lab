@@ -1,5 +1,5 @@
 // Vercel serverless function: the only place the OpenCode key exists.
-// POST {messages} → asks DeepSeek V4.1 Flash on OpenCode Go (or the models in OPENCODE_MODELS, in order).
+// POST {messages} → asks DeepSeek V4.1 Flash on OpenCode Zen (or the models in OPENCODE_MODELS, in order).
 // GET /api/ask?diag=1 → checks every endpoint/model and reports what OpenCode answered (never the key).
 
 // OpenCode documents two URL shapes for Go models; we try both and remember which one works.
@@ -7,11 +7,15 @@ const GO_ENDPOINTS = [
   "https://opencode.ai/zen/go/v1/chat/completions",
   "https://opencode.ai/inference/go/openai/v1/chat/completions"
 ];
-const ZEN_ENDPOINTS = ["https://opencode.ai/zen/v1/chat/completions"];
+// Zen (pay-as-you-go credits). Current documented URL first, the older one as a fallback.
+const ZEN_ENDPOINTS = [
+  "https://opencode.ai/inference/openai/v1/chat/completions",
+  "https://opencode.ai/zen/v1/chat/completions"
+];
 
-// Default: DeepSeek V4.1 Flash on OpenCode Go (cheap and reliable). Override with OPENCODE_MODELS="m1,m2,..." (comma-separated
-// fallbacks; prefix "zen:" for the Zen endpoint).
-const DEFAULT_MODELS = "deepseek-v4.1-flash";
+// Default: DeepSeek V4.1 Flash on OpenCode Zen (billed from Zen credits, $0.30 / $1.20 per 1M tokens in/out).
+// Override with OPENCODE_MODELS="m1,m2,..." (comma-separated fallbacks). "zen:" = Zen credits; no prefix = Go subscription.
+const DEFAULT_MODELS = "zen:deepseek-v4.1-flash";
 
 const SYSTEM = `You are the tutor inside "Neuron Voxel Lab", a site that teaches machine learning from first principles through Kevin Murphy's "Probabilistic Machine Learning" (both volumes) and "Dive into Deep Learning". The learner keeps only what he has verified the logic of and rejects unexplained abstraction. Always: start from a concrete picture or tiny numeric example; explain every symbol the first time it appears; say what an equation computes and why it has that shape; connect to what came before. Plain text, short paragraphs, math in plain characters (x², Σ, √, ·, ∂), no LaTeX. Small NumPy snippets in fenced code when useful.`;
 
@@ -104,7 +108,7 @@ export default async function handler(req, res) {
   }
   if (total > MAX_CHARS) return res.status(413).json({ error: "Question too long. Ask about one part at a time." });
 
-  // OpenCode Go routes by session: one stable id per learner conversation (sent by the page), else a fresh one.
+  // OpenCode routes by session: one stable id per learner conversation (sent by the page), else a fresh one.
   const raw = String(req.headers["x-session"] || "");
   const session = /^[\w-]{8,64}$/.test(raw) ? raw : "nvl-" + Math.random().toString(36).slice(2, 12);
   const log = [], started = Date.now();

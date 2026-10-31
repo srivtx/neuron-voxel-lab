@@ -227,7 +227,7 @@ input[type=range]:focus-visible{outline:2px solid var(--c4);outline-offset:2px}
 .drawer{position:fixed;inset:0;z-index:40;background:color-mix(in srgb,var(--bg) 70%,transparent);display:flex;justify-content:flex-start;padding:max(10px,env(safe-area-inset-top,0px)) max(10px,env(safe-area-inset-right,0px)) 10px max(10px,env(safe-area-inset-left,0px))}
 .drawer-card{width:min(860px,100%);max-height:100%;overflow:auto;background:var(--panel);background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:22px 22px;border:1px solid var(--line);border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.35);padding:18px 20px;display:flex;flex-direction:column;gap:14px}
 .drawer-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.drawer-head h2{margin:2px 0 0}
-.drawer-body{display:flex;flex-direction:column;gap:14px;min-width:0}
+.drawer-body{display:flex;flex-direction:column;gap:14px;min-width:0}.drawer-body>*{flex-shrink:0}
 .libtop{display:flex;flex-direction:column;gap:10px}
 .booktabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .booktab{display:flex;gap:10px;align-items:stretch;text-align:left;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:10px;cursor:pointer;min-width:0}
@@ -237,7 +237,38 @@ input[type=range]:focus-visible{outline:2px solid var(--c4);outline-offset:2px}
 .chgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px}
 .chtile{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto auto;gap:2px 10px;text-align:left;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:10px 12px;cursor:pointer;min-width:0}
 .chtile:hover{border-color:var(--c4)}.chtile.cur{border-color:var(--c4);background:color-mix(in srgb,var(--c4) 10%,var(--card))}
-.chn{grid-row:1/4;font:800 30px/1 var(--f-display);color:var(--muted)}.cht{font:700 13.5px var(--f-body);min-width:0}.chm{font:11px var(--f-mono);color:var(--muted)}.exb{color:var(--c2)}.exb.all{color:var(--c3);font-weight:600}
+.chn{grid-row:1/4;font:800 30px/1 var(--f-display);color:var(--muted)}.cht{font:700 13.5px var(--f-body);min-width:0}.chm{font:11px var(--f-mono);color:var(--muted)}.exb{color:var(--c2)}.nb-btn.go2{border-color:var(--c4);background:color-mix(in srgb,var(--c4) 14%,var(--card))}#path-badge{font:600 10.5px var(--f-mono);color:var(--muted);margin-left:2px}#path-badge:empty{display:none}.exb.all{color:var(--c3);font-weight:600}
+
+/* learning paths */
+.pathmap{display:flex;flex-direction:column;align-items:stretch;gap:2px;border:1px dashed var(--line);border-radius:12px;padding:12px;background:color-mix(in srgb,var(--card) 60%,transparent)}
+.pm-row{display:grid;grid-template-columns:150px minmax(0,1fr);gap:10px;align-items:center}.pm-l{font:600 11px var(--f-mono);color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.pm-items{display:flex;flex-wrap:wrap;gap:8px}.pm-node{border:1px solid color-mix(in srgb,var(--pc) 55%,var(--line));background:color-mix(in srgb,var(--pc) 12%,var(--card));color:var(--ink);font:700 13px var(--f-body);padding:7px 11px;border-radius:9px;cursor:pointer}
+.pm-node:hover{border-color:var(--pc)}.pm-arrow{text-align:center;color:var(--muted);font:14px var(--f-mono);padding-left:150px}
+.pathgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.pathcard{display:flex;flex-direction:column;gap:5px;text-align:left;border:1px solid var(--line);border-top:4px solid var(--pc);background:var(--card);color:var(--ink);border-radius:10px;padding:12px 14px;cursor:pointer;min-width:0;transition:border-color .15s,transform .1s}
+.pathcard:hover{border-color:var(--pc)}.pathcard:active{transform:translateY(1px)}.pathcard.on{box-shadow:0 0 0 2px color-mix(in srgb,var(--pc) 50%,transparent)}
+.pc-top{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}.pc-tag{font:600 11px var(--f-mono);color:var(--pc)}.pc-lvl{font:11px var(--f-mono);color:var(--muted)}
+.pc-t{font:800 17px/1.2 var(--f-display)}.pc-who{font-size:13px;color:var(--muted);line-height:1.4}.pc-meta{font:11px var(--f-mono);color:var(--muted)}
+.pathcard .bar i,.pathhead .bar i{background:var(--pc)}
+.pathhead{border-left:4px solid var(--pc);padding-left:14px}.pathhead .bar{display:block}
+.pstage h3{display:flex;align-items:center;gap:10px;font:800 17px var(--f-display);margin:8px 0 8px}.pstage h3 span{display:grid;place-items:center;width:24px;height:24px;border-radius:7px;background:var(--card);border:1px solid var(--line);font:700 12px var(--f-mono);color:var(--muted)}
+.pstage ol{list-style:none;margin:0;padding:0 0 0 11px;border-left:2px solid var(--line);display:flex;flex-direction:column;gap:6px;margin-left:11px}
+.pstep{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;align-items:start;margin-left:-23px}
+.tick{width:24px;height:24px;margin-top:8px;border-radius:7px;border:1.5px solid var(--line);background:var(--panel);color:var(--panel);font:800 13px var(--f-body);cursor:pointer;display:grid;place-items:center;padding:0}
+.pstep.done .tick{background:var(--c3);border-color:var(--c3);color:var(--bg)}.pstep.next .tick{border-color:var(--c4)}
+.ps-go{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 10px;text-align:left;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:8px 12px;cursor:pointer;min-width:0;transition:border-color .15s}
+.ps-go:hover{border-color:var(--c4)}.ps-go b{font:700 14px var(--f-body);min-width:0}.ps-go small{grid-column:2;font-size:12.5px;color:var(--muted)}
+.pstep.next .ps-go{border-color:var(--c4);background:color-mix(in srgb,var(--c4) 9%,var(--card))}.pstep.done .ps-go b{color:var(--muted)}
+.ps-type{grid-row:1/3;align-self:start;font:600 10px var(--f-mono);text-transform:uppercase;letter-spacing:.05em;padding:3px 6px;border-radius:6px;border:1px solid var(--line);color:var(--muted);min-width:64px;text-align:center}
+.t-st,.t-lab{color:var(--c2);border-color:color-mix(in srgb,var(--c2) 45%,var(--line))}.t-ex,.t-pj{color:var(--c1);border-color:color-mix(in srgb,var(--c1) 45%,var(--line))}.t-c{color:var(--c3);border-color:color-mix(in srgb,var(--c3) 45%,var(--line))}.t-sec,.t-ch,.t-nb{color:var(--c4);border-color:color-mix(in srgb,var(--c4) 45%,var(--line))}
+.pathafter{border-top:1px solid var(--line);padding-top:12px}
+#path-pill{position:fixed;left:max(12px,env(safe-area-inset-left,0px));bottom:max(46px,calc(env(safe-area-inset-bottom,0px) + 46px));z-index:40;display:flex;align-items:stretch;max-width:min(520px,calc(100vw - 24px));border:1px solid color-mix(in srgb,var(--pc) 55%,var(--line));border-radius:12px;background:var(--panel);box-shadow:0 10px 28px rgba(0,0,0,.28);overflow:hidden}
+#path-pill button{border:0;background:none;color:var(--ink);cursor:pointer;font:inherit}
+.pp-main{display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:8px 12px;min-width:0;text-align:left;border-left:4px solid var(--pc)!important}
+.pp-k{font:600 10.5px var(--f-mono);color:var(--muted);text-transform:uppercase;letter-spacing:.05em}.pp-n{font:700 13.5px var(--f-body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.pp-done,.pp-x{padding:0 12px;border-left:1px solid var(--line)!important;font:700 12px var(--f-body)!important;white-space:nowrap}.pp-done{color:var(--c3)!important}
+.pp-main:hover,.pp-done:hover,.pp-x:hover{background:var(--card)!important}
+@media (max-width:640px){.pm-row{grid-template-columns:1fr}.pm-arrow{padding-left:0}#path-pill{bottom:max(12px,env(safe-area-inset-bottom,0px))}.pp-done{display:none}}
 .kbd-help{position:fixed;right:16px;bottom:16px;z-index:60;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font:12.5px var(--f-body);color:var(--ink);box-shadow:0 10px 30px rgba(0,0,0,.25);max-width:min(320px,calc(100vw - 32px))}.kbd-help kbd{font:600 11px var(--f-mono);border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 6px;margin-right:6px;background:var(--card)}.kbd-help div{margin:4px 0}
 .bar{height:4px;background:var(--line);border-radius:2px;overflow:hidden;margin-top:4px}.bar i{display:block;height:100%;background:var(--c3)}
 .lh{font:700 13px var(--f-display);margin:4px 0}
@@ -300,7 +331,7 @@ pre.out{font:11.5px/1.5 var(--f-mono);background:var(--bg);color:var(--c3);borde
     <span class="modesw" role="group" aria-label="View"><button type="button" data-m="course" aria-pressed="true">Course</button><button type="button" data-m="concept" aria-pressed="false">Skill tree <b id="prog-badge" class="badge">0/131</b></button></span>
     <span class="chnav"><button class="iconbtn" type="button" id="prev-ch" aria-label="Previous chapter">‹</button><button class="crumb" type="button" id="crumb" aria-label="Open library"></button><button class="iconbtn" type="button" id="next-ch" aria-label="Next chapter">›</button></span>
   </nav>
-  <div class="hdr-tools"><button class="nb-btn" type="button" id="proj-btn">Projects</button><button class="nb-btn" type="button" id="sym-btn">Σ Symbols</button><button class="nb-btn" type="button" id="why-btn">Why so many equations?</button><a class="nb-btn go" id="colab-link" href="https://colab.research.google.com/drive/1yXAtKDZzJz9Gk9mFBzmEnaV02zr4tthC" target="_blank" rel="noopener">Colab notebook ↗</a></div>
+  <div class="hdr-tools"><button class="nb-btn go2" type="button" id="paths-btn">Paths <b id="path-badge"></b></button><button class="nb-btn" type="button" id="proj-btn">Projects</button><button class="nb-btn" type="button" id="sym-btn">Σ Symbols</button><button class="nb-btn" type="button" id="why-btn">Why so many equations?</button><a class="nb-btn go" id="colab-link" href="https://colab.research.google.com/drive/1yXAtKDZzJz9Gk9mFBzmEnaV02zr4tthC" target="_blank" rel="noopener">Colab notebook ↗</a></div>
 </header>
 
 <main class="lab">
@@ -557,6 +588,6 @@ pre.out{font:11.5px/1.5 var(--f-mono);background:var(--bg);color:var(--c3);borde
     </dl>
     <p class="lede">So the order here is: <b>see it move, run the code, then read the equation as a caption</b>. Every station has an equation you can tap symbol by symbol.</p>
     <div class="six" id="six"></div>
-    <div class="btns"><button class="btn primary" id="why-go">Start at station 1</button><button class="btn" id="why-close">Close</button></div>
+    <div class="btns"><button class="btn primary" id="why-paths">Pick a learning path</button><button class="btn" id="why-go">Start at station 1</button><button class="btn" id="why-close">Close</button></div>
   </div>
 </div>
