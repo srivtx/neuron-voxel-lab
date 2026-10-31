@@ -333,3 +333,90 @@ lab("m17svm", {
   },
   state() { return `Kernel SVM (${this.p.kern} kernel, dataset ${this.p.data}, ℓ=${this.p.ell}, C=${this.p.C}): ${this.svCount}/${this.pts.length} support vectors, accuracy ${pct(this.acc)}.`; }
 });
+
+/* Murphy ch. 18: Decision trees, random forests & gradient boosting in 3D */
+lab("m18tree", {
+  title: "Trees, random forests & boosting: axis-aligned steps in 3D", tab: "Trees & ensembles", cam: [[0, 15, 19], [0, 1.8, 0]],
+  how: "A decision tree cuts space parallel to the axes and predicts the average in each box—so its 3D surface is a staircase of flat rectangles. A deep single tree memorises noisy points (spiky towers). Switch to Random Forest to average M bootstrapped trees (smoothing out the spikes and cutting variance), or to Gradient Boosting where each shallow tree fits the residual errors left by the previous ones.",
+  legend: () => `<b>Predicted surface in 3D</b><div class="row"><span><i class="sw" style="background:var(--c1)"></i>high target</span><span><i class="sw" style="background:var(--c2)"></i>low target</span><span>cubes = training points</span></div>`,
+  ctl: [
+    { seg: "mode", label: "Method", opts: [["tree", "Single tree"], ["rf", "Random forest (bagging)"], ["boost", "Gradient boosting (residuals)"]], v: "tree" },
+    { s: "depth", label: "Max tree depth", min: 1, max: 6, step: 1, v: 3 },
+    { s: "M", label: "Number of trees M", min: 1, max: 20, step: 1, v: 10 },
+    { s: "noise", label: "Data noise σ", min: 0, max: 0.45, step: 0.05, v: 0.18, fmt: f2 },
+    { btns: [["new", "New random sample", true]] }
+  ],
+  stats: [["tr", "Train MSE"], ["te", "Test MSE"], ["leaves", "Leaves per tree"]],
+  chart: "Train (orange) vs test (teal) MSE as trees are added",
+  chartLegend: `<span><i style="background:var(--c1)"></i>train MSE</span><span><i style="background:var(--c2)"></i>test MSE</span>`,
+  init() { this.seed = 11; this.make(); },
+  act() { this.seed = (R0() * 1e9) | 0; this.make(); },
+  change(k) { if (k === "noise") this.make(); else this.fit(); },
+  tfn(x, y) { return 0.5 + 0.35 * Math.sin(x * 1.1) * Math.cos(y * 1.1) + (x + y > 0 ? 0.22 : -0.22); },
+  make() {
+    const r = rng(this.seed);
+    this.tr = Array.from({ length: 55 }, () => { const x = (r() - 0.5) * 5.2, y = (r() - 0.5) * 5.2; return [x, y, clamp(this.tfn(x, y) + randn(r) * this.p.noise, 0.02, 0.98)]; });
+    this.te = Array.from({ length: 80 }, () => { const x = (r() - 0.5) * 5.2, y = (r() - 0.5) * 5.2; return [x, y, clamp(this.tfn(x, y) + randn(r) * this.p.noise, 0.02, 0.98)]; });
+    this.fit();
+  },
+  buildTree(pts, depth) {
+    const mean = pts.reduce((s, p) => s + p[2], 0) / (pts.length || 1);
+    if (depth <= 0 || pts.length < 4) return { leaf: true, v: mean, n: 1 };
+    let best = null, bv = Infinity;
+    for (let dim = 0; dim < 2; dim++) {
+      for (let t = -2.2; t <= 2.2; t += 0.4) {
+        const L = pts.filter(p => p[dim] <= t), R = pts.filter(p => p[dim] > t);
+        if (L.length < 2 || R.length < 2) continue;
+        const mL = L.reduce((s, p) => s + p[2], 0) / L.length, mR = R.reduce((s, p) => s + p[2], 0) / R.length;
+        const sse = L.reduce((s, p) => s + (p[2] - mL) ** 2, 0) + R.reduce((s, p) => s + (p[2] - mR) ** 2, 0);
+        if (sse < bv) { bv = sse; best = { dim, t, L, R }; }
+      }
+    }
+    if (!best) return { leaf: true, v: mean, n: 1 };
+    const l = this.buildTree(best.L, depth - 1), r = this.buildTree(best.R, depth - 1);
+    return { dim: best.dim, t: best.t, l, r, n: l.n + r.n };
+  },
+  evalTree(node, x, y) { while (!node.leaf) node = (node.dim === 0 ? x : y) <= node.t ? node.l : node.r; return node.v; },
+  fit() {
+    const m = this.p.mode, d = this.p.depth, M = m === "tree" ? 1 : this.p.M, r = rng(this.seed + 99);
+    this.trees = []; this.weights = []; this.base = 0; this.curve = [];
+    if (m === "tree") {
+      const T = this.buildTree(this.tr, d); this.trees = [T]; this.weights = [1];
+    } else if (m === "rf") {
+      for (let k = 0; k < M; k++) {
+        const boot = Array.from({ length: this.tr.length }, () => this.tr[(r() * this.tr.length) | 0]);
+        this.trees.push(this.buildTree(boot, d)); this.weights.push(1 / M);
+      }
+    } else {
+      this.base = this.tr.reduce((s, p) => s + p[2], 0) / this.tr.length;
+      const res = this.tr.map(p => [p[0], p[1], p[2] - this.base]);
+      const lr = 0.35;
+      for (let k = 0; k < M; k++) {
+        const T = this.buildTree(res, d); this.trees.push(T); this.weights.push(lr);
+        for (const p of res) p[2] -= lr * this.evalTree(T, p[0], p[1]);
+      }
+    }
+    for (let k = 1; k <= this.trees.length; k++) {
+      const pr = (x, y) => { let s = this.base; for (let i = 0; i < k; i++) s += (m === "rf" ? 1 / k : this.weights[i]) * this.evalTree(this.trees[i], x, y); return s; };
+      this.curve.push([this.tr.reduce((s, p) => s + (pr(p[0], p[1]) - p[2]) ** 2, 0) / this.tr.length, this.te.reduce((s, p) => s + (pr(p[0], p[1]) - p[2]) ** 2, 0) / this.te.length]);
+    }
+    this.refresh();
+  },
+  pred(x, y) { let s = this.base; for (let i = 0; i < this.trees.length; i++) s += this.weights[i] * this.evalTree(this.trees[i], x, y); return clamp(s, 0, 1); },
+  refresh() {
+    if (!this.trees || !this.trees.length) return;
+    const last = this.curve[this.curve.length - 1];
+    setS("tr", f3(last[0])); setS("te", f3(last[1])); setS("leaves", this.trees[0].n);
+    if (cur === this) lineChart($("#lab-chart"), [{ data: this.curve.map(c => c[0]), color: tok("--c1") }, { data: this.curve.map(c => c[1]), color: tok("--c2") }], { ymin: 0, xlabel: this.p.mode === "tree" ? "single tree" : `trees 1 → ${this.trees.length}` });
+    labExtra(`<p style="margin:8px 0 0">${this.p.mode === "tree" ? "A single tree partitions the plane into up to 2^depth axis-aligned rectangles. Raise depth to 6: training MSE drops near 0, but test MSE jumps as tiny rectangles fit noise (Murphy §18.1)." : this.p.mode === "rf" ? `Random forest averages ${this.trees.length} trees trained on bootstrap resamples. Because each tree's staircase jumps in slightly different places, their average is smoother and has lower test MSE (Murphy §18.2–18.3).` : `Gradient boosting starts from the constant mean ${f2(this.base)} and adds ${this.trees.length} trees with step size ν = 0.35, each fitted to the remaining residuals y − F_{m−1}(x) (Murphy §18.4).`}</p>`);
+  },
+  draw() {
+    const G = 24, cs = 11.2 / G;
+    for (let i = 0; i < G; i++) for (let j = 0; j < G; j++) {
+      const x = -2.6 + (i + 0.5) * 5.2 / G, y = -2.6 + (j + 0.5) * 5.2 / G, v = this.pred(x, y);
+      V.box(x * 2, 0, -y * 2, cs * 0.92, 0.1 + v * 3.6, cs * 0.92, mix3(C.c2, C.card, C.c1, v), null);
+    }
+    for (const [x, y, v] of this.tr) V.box(x * 2, v * 3.6 + 0.12, -y * 2, 0.25, 0.25, 0.25, C.ink, null);
+  },
+  state() { const last = this.curve ? this.curve[this.curve.length - 1] : [0, 0]; return `Trees lab (${this.p.mode}, depth=${this.p.depth}, M=${this.trees ? this.trees.length : 1}): train MSE ${f3(last[0])}, test MSE ${f3(last[1])}.`; }
+});
