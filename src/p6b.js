@@ -91,7 +91,7 @@ let libBook = "M";
 function openLibrary(book) {
   const d = drawer("library", "Library", "Three books · every chapter"); libBook = book || (curChap ? curChap[0] : "M"); d.hidden = false; renderLibrary();
 }
-function chapterStats(b, n) { const secs = TOC[b].filter(x => x[0].split(".")[0] === n && x[0].split(".").length === 2 && !/Exercises|Summary/.test(x[1])), ex = secs.filter(s => SEC[b + s[0]]).length, info = CHI[b + n], old = chInfo(b, n); return { total: secs.length, ex, labs: (info ? info.sims : old ? old[6] : []).length }; }
+function chapterStats(b, n) { const secs = TOC[b].filter(x => x[0].split(".")[0] === n && x[0].split(".").length === 2 && !/Exercises|Summary/.test(x[1])), ex = secs.filter(s => SEC[b + s[0]]).length, info = CHI[b + n], old = chInfo(b, n); return { total: secs.length, ex, labs: ((info && info.sims && info.sims.length) ? info.sims : old ? old[6] : []).length }; }
 function renderLibrary(q = "") {
   const body = $("#library .drawer-body");
   body.innerHTML = `<div class="libtop"><div class="booktabs">${Object.entries(BOOKN).map(([b, n]) => `<button type="button" class="booktab${b === libBook ? " on" : ""}" data-b="${b}"><span class="spine s${b}"></span><span><b>${esc(n.split(" · ")[0])}</b><small>${esc(n.split(" · ")[1] || "Zhang, Lipton, Li, Smola")} · ${chapters(b).length} chapters</small></span></button>`).join("")}</div>

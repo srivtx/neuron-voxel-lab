@@ -77,7 +77,7 @@ function goChapter(key, sectionNum) {
   $("#crumb").innerHTML = `<span class="spine s${b}"></span><span class="ct"><small>${esc(BOOKN[b].split(" · ")[0])} · chapter ${n} of ${chapters(b).length}</small><b>${esc(ch[1].replace(/\s*\*$/, ""))}</b></span><i aria-hidden="true">▾</i>`;
   $$("[data-station]").forEach(s => s.hidden = true); $("#chapview").hidden = false;
   renderChapter(b, n, ch);
-  const info = CHI[key] || {}, old = chInfo(b, n), sims = info.sims || (old ? old[6] : []);
+  const info = CHI[key] || {}, old = chInfo(b, n), sims = (info.sims && info.sims.length) ? info.sims : (old ? old[6] : []);
   if (cur && cur.exit) cur.exit();
   const firstLab = (sims || []).find(x => ST[x] && ST[x].isLab);
   if (firstLab) startSim(firstLab, false); else startSkyline(b, n);
@@ -108,17 +108,21 @@ ST.sky = {
 
 function stepChapter(d) { const b = curChap ? curChap[0] : "M", list = chapters(b), i = list.findIndex(c => b + c[0] === curChap), j = clamp(i + d, 0, list.length - 1); goChapter(b + list[j][0]); }
 
+const SUB = {};
 function renderChapter(b, n, ch) {
   const key = b + n, info = CHI[key], old = chInfo(b, n), rows = TOC[b].filter(x => x[0].split(".")[0] === n && x[0].includes(".")), secs = rows.filter(x => x[0].split(".").length === 2);
-  const sims = info ? info.sims : old ? old[6] : [], explained = secs.filter(s => SEC[b + s[0]]).length;
+  const sims = (info && info.sims && info.sims.length) ? info.sims : old ? old[6] : [], explained = secs.filter(s => SEC[b + s[0]]).length;
   const why = info ? info.why : old ? old[5] : "This chapter's sections are listed below. Explanations and labs are coming in a later pass; you can already ask about any section.";
   const nonExSecs = secs.filter(x => !/^(Exercises|Summary)$/.test(x[1].trim()));
   const status = explained ? `<span class="pill ok">${explained} of ${nonExSecs.length} sections explained</span>` : (!nonExSecs.length && info) ? `<span class="pill ok">chapter overview explained</span>` : `<span class="pill">sections listed · explanations coming</span>`;
+  const eqs = [...((info && info.eqs) || []), ...((old && old[7]) || []).filter(e => e[0] !== "—")];
+  const seenEq = new Set(eqs.map(e => e[0]));
+  for (const s of secs) { const se = SEC[b + s[0]]; if (se && se.eq && !seenEq.has(se.eq[0]) && eqs.length < 4) { eqs.push(se.eq); seenEq.add(se.eq[0]); } }
   const v = $("#chapview");
   v.innerHTML = `<div><p class="eyebrow">${esc(BOOKN[b])} · chapter ${n} · p. ${ch[2]}</p><h2>${esc(ch[1].replace(/\s*\*$/, ""))}</h2>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px">${status}${sims.length ? `<span class="pill">${sims.length} lab${sims.length > 1 ? "s" : ""}</span>` : ""}${/\*$/.test(ch[1]) ? `<span class="pill">* advanced chapter</span>` : ""}</div>
     <p class="lede"><b>Why this chapter exists.</b> ${esc(why)}</p>${info ? `<p class="note">Builds on: ${esc(info.builds)}.</p>` : ""}
-    ${old && old[7] ? `<div class="block" style="margin-top:12px"><h3>The key equations, in words</h3>${old[7].map(([e, w]) => `<div class="eq" style="font-size:15px;padding:6px 10px;margin-top:6px">${esc(e)}</div><p class="note" style="margin:4px 0 0;color:var(--ink)">${esc(w)}</p>`).join("")}</div>` : ""}</div>
+    ${eqs.length ? `<div class="block" style="margin-top:12px"><h3>The key equations, in words</h3>${eqs.map(([e, w]) => `<div class="eq" style="font-size:15px;padding:6px 10px;margin-top:6px">${esc(e)}</div><p class="note" style="margin:4px 0 0;color:var(--ink)">${esc(w)}</p>`).join("")}</div>` : ""}</div>
     ${sims.length ? `<div class="block"><h3>Labs for this chapter</h3><div class="btns" style="margin:0">${sims.map(s => `<button type="button" class="btn" data-sim="${s}" aria-pressed="false">${esc(ST[s].isLab ? ST[s].tab : "Station " + s.slice(1) + ": " + ST[s].tab)}</button>`).join("")}</div></div>` : ""}
     <div class="block" id="lab" hidden></div>
     ${secs.length ? `<div><h3 style="font:700 18px var(--f-display);margin:6px 0 8px">Sections</h3><div class="secs">${secs.map(s => secCard(b, s, rows)).join("")}</div></div>` : ""}
@@ -126,15 +130,20 @@ function renderChapter(b, n, ch) {
     <div class="btns" style="justify-content:space-between"><button class="btn" type="button" data-step="-1">← Previous chapter</button><button class="btn primary" type="button" data-step="1">Next chapter →</button></div>`;
   v.querySelectorAll("[data-sim]").forEach(x => x.onclick = () => startSim(x.dataset.sim));
   v.querySelectorAll("details.sec").forEach(d => d.addEventListener("toggle", () => {
-    if (!d.open || d.dataset.ai) return; d.dataset.ai = 1; bindLive(d);
+    if (!d.open || d.dataset.ai) return; d.dataset.ai = 1; bindLive(d); if (typeof bindCopy === "function") bindCopy(d);
     const slot = d.querySelector(".sec-ai"); if (!slot) return; const sn = slot.dataset.s, sx = rows.find(r => r[0] === sn), subs = rows.filter(r => r[0].startsWith(sn + ".")), e = SEC[b + sn];
     explainButton(slot, b + sn, () => `${EASY_RULES}\n\nBook: ${BOOKN[b]}, chapter ${n} "${ch[1]}", section §${sn} "${sx[1]}" (p. ${sx[2]}). Subsections: ${subs.map(x => x[0] + " " + x[1]).join("; ") || "none"}.${e ? " Short summary already on the site: " + e.t : ""} Explain what this section is trying to do and its key ideas and equations, from the ground up.`, e ? "Explain more simply (AI)" : "Explain this section simply (AI)");
   }));
   v.querySelectorAll("[data-step]").forEach(x => x.onclick = () => stepChapter(+x.dataset.step));
-  v.querySelectorAll("[data-ask]").forEach(x => x.onclick = () => { chapAskSection = x.dataset.ask; const ta = $("#chap-ask textarea"); $("#chap-ask").scrollIntoView({ block: "center", behavior: "smooth" }); if (ta) { ta.value = `Explain §${x.dataset.ask} from first principles: what is it trying to do, and what do its equations mean?`; ta.focus(); } });
+  v.querySelectorAll("[data-ask]").forEach(x => x.onclick = () => {
+    chapAskSection = x.dataset.ask;
+    const row = rows.find(r => r[0] === x.dataset.ask);
+    const ta = $("#chap-ask textarea"); $("#chap-ask").scrollIntoView({ block: "center", behavior: "smooth" });
+    if (ta) { ta.value = `Explain §${x.dataset.ask}${row ? ' "' + row[1].replace(/\s*\*\s*$/, "") + '"' : ""} from first principles: what problem is it solving, how does a concrete numerical example work, and what do its equations mean?`; ta.focus(); }
+  });
   chapAskSection = null;
   makeAsk($("#chap-ask"), () => {
-    const s = chapAskSection ? rows.find(r => r[0] === chapAskSection) : null, subs = s ? rows.filter(r => r[0].startsWith(s[0] + ".")) : [], e = s ? SEC[b + s[0]] : null;
+    const s = chapAskSection ? rows.find(r => r[0] === chapAskSection) : null, subs = s ? rows.filter(r => r[0].startsWith(s[0] + ".")) : [], e = s ? (SEC[b + s[0]] || SEC[b + s[0].split(".").slice(0, 2).join(".")]) : null;
     return `He is reading ${BOOKN[b]}, chapter ${n} "${ch[1]}". ${s ? `Section §${s[0]} "${s[1]}" (p. ${s[2]}). Its subsections: ${subs.map(x => x[0] + " " + x[1]).join("; ") || "none"}.${e ? " The site's explanation: " + e.t + (e.eq ? " Key equation: " + e.eq[0] + " — " + e.eq[1] : "") : ""}` : `Sections: ${secs.map(x => x[0] + " " + x[1]).join("; ")}.`}\nCurrent lab state: ${cur && cur.state ? cur.state() : "none"}`;
   }, ["What is this chapter really trying to do?", "Which sections are essential on a first pass?", "Give me a tiny NumPy experiment for the main idea"]);
   afterChapter(b, n, v);
@@ -144,10 +153,10 @@ function secCard(b, s, rows) {
   const e = SEC[b + s[0]], subs = rows.filter(r => r[0].startsWith(s[0] + ".") && r[0].split(".").length === 3), star = /\*\s*$/.test(s[1]), title = s[1].replace(/\s*\*\s*$/, "");
   const ex = /^Exercises|^Summary/.test(title);
   return `<details class="sec" id="sec-${s[0].replace(/\./g, "-")}"${e && !ex ? "" : ""}><summary><span class="sn">§${s[0]}</span><span class="st">${esc(title)}</span><span class="sp">p. ${s[2]}${star ? " · *" : ""}</span>${e ? `<i class="dot ok" title="explained"></i>` : ex ? "" : `<i class="dot" title="not explained yet"></i>`}</summary>
-    <div class="sec-body">${EASY[b + s[0]] ? `<p class="easy"><span class="tag">Easy</span>${esc(EASY[b + s[0]])}</p>` : ""}${e ? `<p>${esc(e.t)}</p>${e.eq ? `<div class="eq" style="font-size:15px;padding:6px 10px">${esc(e.eq[0])}</div><p class="note" style="margin:4px 0 0;color:var(--ink)">${esc(e.eq[1])}</p>` : ""}` : ex ? `<p class="note" style="margin:0">Exercises: try them after the labs; ask below if you get stuck.</p>` : `<p class="note" style="margin:0">Not explained on the site yet. Use <b>Ask</b> for a from-scratch explanation now.</p>`}
+    <div class="sec-body">${EASY[b + s[0]] ? `<p class="easy"><span class="tag">Easy</span>${esc(EASY[b + s[0]])}</p>` : ""}${e ? `<p>${esc(e.t)}</p>${e.eq ? `<div class="eq" style="font-size:15px;padding:6px 10px">${esc(e.eq[0])}</div><p class="note" style="margin:4px 0 0;color:var(--ink)">${esc(e.eq[1])}</p>` : ""}${e.ex ? `<div class="callout" style="margin-top:4px"><span class="eyebrow" style="color:var(--c4);display:block;margin-bottom:2px">Worked example</span>${esc(e.ex)}</div>` : ""}${e.code && typeof codeBlock === "function" ? codeBlock(e.code, e.codeLabel || "In code (NumPy / PyTorch)") : ""}` : ex ? `<p class="note" style="margin:0">Exercises: try them after the labs; ask below if you get stuck.</p>` : `<p class="note" style="margin:0">Not explained on the site yet. Use <b>Ask</b> for a from-scratch explanation now.</p>`}
     <p class="note" style="margin:6px 0 0">First pass: <b>${star ? "skip for now (marked * in the book)" : ex ? "after the chapter" : "read"}</b></p>
     ${(LIVE_SEC[b + s[0]] || []).map(liveHTML).join("")}
-    ${subs.length ? `<ul class="subs">${subs.map(x => `<li><span>${x[0]}</span> ${esc(x[1].replace(/\s*\*\s*$/, ""))}${/\*\s*$/.test(x[1]) ? " *" : ""} <em>p. ${x[2]}</em></li>`).join("")}</ul>` : ""}
+    ${subs.length ? `<ul class="subs">${subs.map(x => `<li><span>§${x[0]}</span> ${esc(x[1].replace(/\s*\*\s*$/, ""))}${/\*\s*$/.test(x[1]) ? " *" : ""} <em>p. ${x[2]}</em><button type="button" class="sub-ask" data-ask="${x[0]}">Ask §${x[0]}</button>${SUB[b + x[0]] ? `<div class="sub-note">${esc(SUB[b + x[0]])}</div>` : ""}</li>`).join("")}</ul>` : ""}
     <div class="btns">${e && e.sim ? `<button type="button" class="btn primary" data-sim="${e.sim}">Simulate: ${esc(ST[e.sim].tab)}</button>` : ""}${e && e.also ? e.also.map(a => `<button type="button" class="btn" data-sim="${a}">${esc(ST[a].isLab ? ST[a].tab : "Station " + a.slice(1) + ": " + ST[a].tab)}</button>`).join("") : ""}${ex ? "" : `<button type="button" class="btn" data-ask="${s[0]}">Ask about §${s[0]}</button>`}</div>${ex ? "" : `<div class="sec-ai" data-s="${s[0]}"></div>`}</div></details>`;
 }
 
