@@ -381,3 +381,273 @@ ex(id="8.5", ch="M8", sec="8.3", kind="derive", title="Newton's method by hand",
    q="Minimise f(x) = x⁴ − 3x² + 2 with Newton's method starting at x₀ = 2. Do two steps by hand.",
    hint="x ← x − f′(x)/f″(x), with f′ = 4x³ − 6x and f″ = 12x² − 6.",
    answer="x₀ = 2: f′ = 32 − 12 = 20, f″ = 48 − 6 = 42, x₁ = 2 − 20/42 ≈ 1.524. x₁: f′ = 4(3.540) − 9.143 ≈ 5.016, f″ = 12(2.322) − 6 ≈ 21.87, x₂ ≈ 1.524 − 0.229 ≈ 1.294. The true minimum is √1.5 ≈ 1.225, and Newton converges quadratically: the number of correct digits roughly doubles each step once close.")
+
+# ---------------- Chapter 9 ----------------
+ex(id="9.1", ch="M9", sec="9.3", kind="code", title="Naive Bayes spam filter from scratch",
+   q="Train a naive Bayes classifier on six tiny emails (3 spam, 3 ham) using word counts with add-one (Laplace) smoothing. Classify 'win money now' and 'meeting tomorrow'. Print the log-odds for each.",
+   hint="log P(spam | words) ∝ log P(spam) + Σ_w log P(w | spam). With add-one smoothing, P(w | c) = (count + 1) / (total words in c + vocabulary size).",
+   answer="'win money now' gets a large positive log-odds (spam), 'meeting tomorrow' a negative one (ham). 'Naive' means each word is treated as independent given the class, so the probabilities multiply (logs add). Add-one smoothing stops an unseen word from giving probability 0, which would wipe out everything else (Murphy §9.3.2–9.3.3).",
+   code='''import numpy as np
+spam = ["win money now", "win a prize now", "cheap money win"]
+ham = ["meeting at noon", "project meeting tomorrow", "lunch tomorrow at noon"]
+vocab = sorted({w for d in spam + ham for w in d.split()})
+def counts(docs): return np.array([sum(d.split().count(w) for d in docs) for w in vocab])
+cs, ch = counts(spam), counts(ham)
+ps = (cs + 1) / (cs.sum() + len(vocab))      ## add-one smoothed P(word | spam)
+ph = (ch + 1) / (ch.sum() + len(vocab))      ## add-one smoothed P(word | ham)
+def log_odds(text):
+    lo = np.log(0.5) - np.log(0.5)
+    for w in text.split():
+        if w in vocab:
+            i = vocab.index(w); lo += np.log(ps[i]) - np.log(ph[i])   ## each word adds its own evidence
+    return lo
+for t in ["win money now", "meeting tomorrow"]:
+    print(f"{t!r:22s} log-odds spam:ham = {log_odds(t):+.3f}")''')
+ex(id="9.2", ch="M9", sec="9.2", kind="derive", title="Why a shared covariance gives a straight boundary",
+   q="Two classes are Gaussian with means μ₀, μ₁ and the same covariance Σ. Show that log p(x|1) − log p(x|0) is linear in x.",
+   hint="Expand −½(x − μ)ᵀΣ⁻¹(x − μ) = −½xᵀΣ⁻¹x + μᵀΣ⁻¹x − ½μᵀΣ⁻¹μ for each class and subtract.",
+   answer="Both classes contribute the same −½xᵀΣ⁻¹x term (same Σ), and it cancels in the difference. What remains is (μ₁ − μ₀)ᵀΣ⁻¹x + constant: a weighted sum of x plus a bias. So the log-odds is wᵀx + b with w = Σ⁻¹(μ₁ − μ₀). That's exactly logistic regression's form (Murphy §9.2.3). With different covariances the quadratic terms don't cancel and the boundary curves (QDA).")
+ex(id="9.3", ch="M9", sec="9.2", kind="code", title="Gaussian classifier on real flowers",
+   q="On the iris dataset (150 flowers, 4 measurements, 3 species), fit a Gaussian discriminant classifier from scratch: per-class means, a shared covariance (LDA), and class priors. Report test accuracy on a 100/50 split, then compare with the nearest-centroid classifier (same means, identity covariance).",
+   hint="Score each class with −½(x − μ_c)ᵀΣ⁻¹(x − μ_c) + log π_c and pick the largest.",
+   answer="LDA gets 98% here; nearest centroid only 86%. The difference is the covariance: petal length and width rise together, so distances must be measured in units that respect that correlation (Mahalanobis, §3.2.2). Nearest centroid is exactly LDA with Σ = I, so it measures plain Euclidean distance and gets fooled (Murphy §9.2.5).",
+   code='''import numpy as np
+from sklearn.datasets import load_iris
+X, y = load_iris(return_X_y=True)
+idx = np.random.default_rng(0).permutation(150); tr, te = idx[:100], idx[100:]
+mus = np.array([X[tr][y[tr] == c].mean(0) for c in range(3)])
+S = sum(np.cov(X[tr][y[tr] == c].T) * ((y[tr] == c).sum() - 1) for c in range(3)) / (100 - 3)   ## pooled covariance
+Si = np.linalg.inv(S); logpi = np.log(np.bincount(y[tr]) / 100)
+def lda(x): return np.argmax([-0.5 * (x - m) @ Si @ (x - m) + lp for m, lp in zip(mus, logpi)])
+def centroid(x): return np.argmin([np.sum((x - m) ** 2) for m in mus])
+print("LDA accuracy           ", np.mean([lda(x) == t for x, t in zip(X[te], y[te])]))
+print("nearest centroid       ", np.mean([centroid(x) == t for x, t in zip(X[te], y[te])]))''')
+
+# ---------------- Chapter 10 ----------------
+ex(id="10.1", ch="M10", sec="10.2", kind="code", title="Logistic regression from scratch",
+   q="Make two overlapping 2-D Gaussian blobs (200 points each). Fit logistic regression with gradient descent on the mean negative log-likelihood (lr 0.5, 500 steps). Print the weights, the final loss, and the training accuracy, and compare with scikit-learn's LogisticRegression (no penalty).",
+   hint="Gradient = Xᵀ(σ(Xw) − y)/N with a column of ones in X for the bias.",
+   answer="Your weights match scikit-learn's to about 2 decimals, and so does the accuracy. Nothing magic happens inside the library: it minimises the same convex loss, just with a faster optimiser (Murphy §10.2.3).",
+   code='''import numpy as np
+from sklearn.linear_model import LogisticRegression
+rng = np.random.default_rng(0)
+X = np.vstack([rng.normal([-1, -1], 1, (200, 2)), rng.normal([1, 1.2], 1, (200, 2))]); y = np.r_[np.zeros(200), np.ones(200)]
+A = np.column_stack([np.ones(400), X]); w = np.zeros(3)
+sig = lambda z: 1 / (1 + np.exp(-z))
+for _ in range(500):
+    p = sig(A @ w)
+    w -= 0.5 * A.T @ (p - y) / len(y)        ## gradient of the mean NLL
+p = sig(A @ w); nll = -np.mean(y * np.log(p) + (1 - y) * np.log(1 - p))
+sk = LogisticRegression(penalty=None).fit(X, y)
+print("ours   w =", w.round(3), f" loss {nll:.4f}  acc {np.mean((p > .5) == y):.3f}")
+print("sklearn w =", np.r_[sk.intercept_, sk.coef_[0]].round(3), f" acc {sk.score(X, y):.3f}")''')
+ex(id="10.2", ch="M10", sec="10.2", kind="derive", title="Logistic regression is convex",
+   q="For NLL(w) = −Σ [yₙ log μₙ + (1 − yₙ) log(1 − μₙ)] with μₙ = σ(wᵀxₙ), show the gradient is Σ(μₙ − yₙ)xₙ and the Hessian is Σ μₙ(1 − μₙ) xₙxₙᵀ. Why does that make the loss convex?",
+   hint="Use dμ/dz = μ(1 − μ) (exercise 2.5) and the chain rule.",
+   answer="d/dz of −[y log μ + (1−y) log(1−μ)] = −[y(1−μ) − (1−y)μ] = μ − y; times dz/dw = x gives (μ − y)x. Differentiating again: d(μ − y)/dw = μ(1−μ)x, so H = Σ μ(1−μ) x xᵀ. For any vector v, vᵀHv = Σ μ(1−μ)(vᵀx)² ≥ 0 because μ(1−μ) > 0. A Hessian that's never negative means the bowl curves upward in every direction: one global minimum and no traps (Murphy §10.2.3.4).")
+ex(id="10.3", ch="M10", sec="10.2", kind="code", title="The perceptron: learning from mistakes",
+   q="On linearly separable 2-D data, run the perceptron algorithm: for each misclassified point, add yₙxₙ to w (labels ±1). Count the mistakes per pass until a pass has none.",
+   hint="Predict sign(wᵀx). Only update on mistakes.",
+   answer="Mistakes drop to 0 after a few passes: on separable data the perceptron is guaranteed to stop. It's logistic regression's SGD with the sigmoid replaced by a hard step, which is why it has no notion of confidence and never settles on a 'best' line, only a valid one (Murphy §10.2.5).",
+   code='''import numpy as np
+rng = np.random.default_rng(1)
+X = np.vstack([rng.normal([-2, -2], 0.8, (50, 2)), rng.normal([2, 2], 0.8, (50, 2))])
+y = np.r_[-np.ones(50), np.ones(50)]; A = np.column_stack([np.ones(100), X]); w = np.zeros(3)
+for epoch in range(20):
+    mistakes = 0
+    for i in rng.permutation(100):
+        if y[i] * (A[i] @ w) <= 0:
+            w += y[i] * A[i]                  ## nudge the line toward the misclassified point
+            mistakes += 1
+    print(f"pass {epoch + 1}: {mistakes} mistakes")
+    if mistakes == 0: break
+print("w =", w.round(2))''')
+ex(id="10.4", ch="M10", sec="10.2", kind="code", title="Newton's method (IRLS) vs gradient descent",
+   q="Fit logistic regression on the 10.1 data with Newton's method: w ← w − H⁻¹g using the Hessian from 10.2. Print the loss after each of 6 iterations, and compare with how many GD steps reach the same loss.",
+   hint="H = Aᵀ diag(μ(1−μ)) A / N, g = Aᵀ(μ − y)/N.",
+   answer="Newton is within 10⁻⁶ of the minimum after 5 iterations; gradient descent needs about 160 steps just to get within 10⁻⁴. Newton uses the curvature to jump to the bottom of the local quadratic bowl. Each Newton step costs more (it solves a D×D system), which is why it's used for small models like this, not for neural nets with millions of weights. Murphy calls it IRLS (§10.2.6).",
+   code='''import numpy as np
+rng = np.random.default_rng(0)
+X = np.vstack([rng.normal([-1, -1], 1, (200, 2)), rng.normal([1, 1.2], 1, (200, 2))]); y = np.r_[np.zeros(200), np.ones(200)]
+A = np.column_stack([np.ones(400), X]); sig = lambda z: 1 / (1 + np.exp(-z))
+nll = lambda w: -np.mean(y * np.log(sig(A @ w)) + (1 - y) * np.log(1 - sig(A @ w)))
+w = np.zeros(3)
+for it in range(6):
+    mu = sig(A @ w); g = A.T @ (mu - y) / 400
+    H = (A * (mu * (1 - mu))[:, None]).T @ A / 400   ## curvature
+    w -= np.linalg.solve(H, g)                        ## Newton step
+    print(f"Newton iter {it + 1}: loss {nll(w):.6f}")
+target = nll(w) + 1e-4; wg = np.zeros(3); steps = 0
+while nll(wg) > target:
+    wg -= 0.5 * A.T @ (sig(A @ wg) - y) / 400; steps += 1
+print("gradient descent steps to get within 1e-4:", steps)''')
+
+# ---------------- Chapter 11 ----------------
+ex(id="11.1", ch="M11", sec="11.4", kind="code", title="Lasso by coordinate descent",
+   q="Implement lasso with coordinate descent and soft-thresholding on synthetic data with 10 features where only 3 truly matter. Print the weights for λ = 0.01, 0.1, 0.5 and count how many are exactly zero.",
+   hint="For feature j: ρ = xⱼᵀ(y − Xw + xⱼwⱼ)/N; wⱼ = soft(ρ, λ) / (xⱼᵀxⱼ/N), with soft(ρ, λ) = sign(ρ)·max(|ρ| − λ, 0).",
+   answer="As λ grows, more weights hit exactly 0, and the three true features (with weights 3, −2, 1.5) survive longest. Soft-thresholding is the reason: any coefficient whose correlation with the residual is below λ gets set to exactly 0, not just shrunk (Murphy §11.4.3, §11.4.9).",
+   code='''import numpy as np
+rng = np.random.default_rng(2)
+N, D = 200, 10
+X = rng.normal(size=(N, D)); w_true = np.zeros(D); w_true[[0, 3, 7]] = [3, -2, 1.5]
+y = X @ w_true + 0.5 * rng.normal(size=N)
+soft = lambda r, lam: np.sign(r) * np.maximum(np.abs(r) - lam, 0)
+for lam in [0.01, 0.1, 0.5]:
+    w = np.zeros(D)
+    for sweep in range(200):
+        for j in range(D):
+            r = y - X @ w + X[:, j] * w[j]                 # residual without feature j
+            rho = X[:, j] @ r / N
+            w[j] = soft(rho, lam) / (X[:, j] @ X[:, j] / N)   ## soft-threshold, then rescale
+    print(f"lambda {lam}: zeros {np.sum(w == 0)}  w = {w.round(2)}")''')
+ex(id="11.2", ch="M11", sec="11.3", kind="derive", title="What ridge does to each direction",
+   q="Using the SVD X = USVᵀ, show that ridge predictions are ŷ = Σⱼ uⱼ · sⱼ²/(sⱼ² + λ) · uⱼᵀy. Which directions get shrunk most?",
+   hint="ŵ = (XᵀX + λI)⁻¹Xᵀy. Substitute XᵀX = VS²Vᵀ.",
+   answer="(VS²Vᵀ + λI)⁻¹ = V(S² + λI)⁻¹Vᵀ, so ŵ = V(S² + λI)⁻¹SUᵀy and ŷ = Xŵ = US(S² + λI)⁻¹SUᵀy = Σ uⱼ [sⱼ²/(sⱼ²+λ)] uⱼᵀy. Least squares keeps every direction fully (factor 1). Ridge multiplies each by sⱼ²/(sⱼ²+λ): directions with large singular values (where the data varies a lot) barely shrink, while small-variance directions, the noisy ones, shrink toward 0. That's 'soft PCA' (Murphy §11.3.2).")
+ex(id="11.3", ch="M11", sec="11.6", kind="code", title="Outliers: squared error vs Huber",
+   q="Fit a line to 50 points where 5 are wild outliers, once with least squares and once with the Huber loss (δ = 1) by gradient descent. Compare the slopes with the true slope 2.",
+   hint="Huber gradient on residual r is r if |r| ≤ δ, else δ·sign(r).",
+   answer="Least squares gets dragged toward the outliers: squaring a residual of 30 gives it 900 units of pull. Huber treats big residuals linearly, so each outlier's pull is capped at δ and the slope stays close to 2. Equivalent view: squared error assumes Gaussian noise, which says outliers are nearly impossible; Huber and Laplace assume heavier tails (Murphy §11.6).",
+   code='''import numpy as np
+rng = np.random.default_rng(3)
+x = rng.uniform(0, 10, 50); y = 2 * x + 1 + rng.normal(0, 1, 50)
+y[:5] += rng.uniform(25, 40, 5)                       # five outliers
+A = np.column_stack([np.ones(50), x])
+w_ls = np.linalg.lstsq(A, y, rcond=None)[0]
+w = w_ls.copy()
+for _ in range(5000):
+    r = A @ w - y
+    g = np.where(np.abs(r) <= 1, r, np.sign(r))       ## Huber: linear pull beyond delta = 1
+    w -= 0.01 * A.T @ g / 50
+print("least squares slope", w_ls[1].round(3), " intercept", w_ls[0].round(3))
+print("Huber slope        ", w[1].round(3), " intercept", w[0].round(3))''')
+ex(id="11.4", ch="M11", sec="11.2", kind="code", title="R² and what it means",
+   q="Fit least squares to y = 3x + noise with noise σ = 1, 3, 10 (200 points, x ~ U(0, 1)·5). Print R² for each. Then explain why R² falls even though the fitted slope is still right.",
+   hint="R² = 1 − SS_res / SS_tot.",
+   answer="The slope stays near 3 in all three cases (3.10, 2.91, 3.07), but R² drops from 0.95 to 0.66 to 0.15. R² measures the share of y's variation that x explains. With more noise there's more unexplained variation, even though the model is exactly right. A low R² means a noisy target, not necessarily a wrong model (Murphy §11.2.4).",
+   code='''import numpy as np
+rng = np.random.default_rng(4)
+x = rng.uniform(0, 5, 200); A = np.column_stack([np.ones(200), x])
+for s in [1, 3, 10]:
+    y = 3 * x + rng.normal(0, s, 200)
+    w = np.linalg.lstsq(A, y, rcond=None)[0]
+    r2 = 1 - np.sum((y - A @ w) ** 2) / np.sum((y - y.mean()) ** 2)   ## share of variance explained
+    print(f"noise {s:2d}: slope {w[1]:.3f}  R^2 {r2:.3f}")''')
+
+# ---------------- Chapter 12 ----------------
+ex(id="12.1", ch="M12", sec="12.2", kind="code", title="Poisson regression for counts",
+   q="Simulate 500 counts with rate λ = exp(0.5 + 0.8x), x ~ N(0, 1). Fit a Poisson GLM by gradient ascent on the log-likelihood Σ [yₙ wᵀxₙ − exp(wᵀxₙ)] and recover the weights.",
+   hint="Gradient = Σ (yₙ − exp(wᵀxₙ)) xₙ: 'observed minus expected' again.",
+   answer="The fit recovers weights close to the true [0.5, 0.8] (500 noisy counts can't pin them exactly). The gradient has the same 'observed − predicted' shape as linear and logistic regression. That's the exponential-family pattern from §3.4: every GLM's gradient is (y − E[y|x])·x, only the link (here exp) changes (Murphy §12.4).",
+   code='''import numpy as np
+rng = np.random.default_rng(5)
+x = rng.normal(size=500); A = np.column_stack([np.ones(500), x])
+y = rng.poisson(np.exp(0.5 + 0.8 * x))
+w = np.zeros(2)
+for _ in range(2000):
+    w += 0.2 * A.T @ (y - np.exp(A @ w)) / len(y)   ## observed minus expected, times the input (averaged)
+print("estimated w:", w.round(3), "  true: [0.5, 0.8]")''')
+ex(id="12.2", ch="M12", sec="12.2", kind="think", title="Pick the GLM",
+   q="Which output distribution and link would you use for: (a) house price, (b) whether a customer churns, (c) number of insurance claims per year, (d) which of 5 products a user clicks?",
+   hint="Match the distribution to what the target can be: any real number, yes/no, a count, one of K.",
+   answer="(a) Gaussian with identity link: linear regression. (b) Bernoulli with logit link: logistic regression. (c) Poisson with log link, so the predicted rate is always positive. (d) Categorical with softmax: multinomial logistic regression. Same recipe each time: a linear score, then the squash that suits the output type (Murphy §12.2).")
+
+# ---------------- Chapter 13 ----------------
+ex(id="13.1", ch="M13", sec="13.2", kind="code", title="Solve XOR with a 2-2-1 network by hand",
+   q="Train a network with 2 tanh hidden units and a sigmoid output on the four XOR points, writing forward and backward passes yourself. Run it from two random starts (seeds 0 and 3) and compare the final loss and predictions.",
+   hint="Backward: dz2 = a − y; dW2 = hᵀdz2; dh = dz2 W2ᵀ; dz1 = dh ⊙ (1 − h²); dW1 = Xᵀdz1.",
+   answer="Seed 0 solves it: loss ≈ 0.0006, predictions [0, 1, 1, 0]. One hidden unit learns roughly OR, the other roughly AND, and the output computes 'OR and not AND'. Seed 3 gets stuck at loss ≈ 0.347 with predictions [0, 1, 0.5, 0.5]: it gets two points right and shrugs on the other two. More steps won't fix it; it's a local minimum. That's non-convexity (ch. 8) in its smallest form: about half of random starts fail with only 2 hidden units. Fixes: more hidden units (more ways downhill) or several random restarts (Murphy §13.2.1).",
+   code='''import numpy as np
+X = np.array([[0, 0], [0, 1], [1, 0], [1, 1.]]); y = np.array([[0], [1], [1], [0.]])
+sig = lambda z: 1 / (1 + np.exp(-z))
+for seed in (0, 3):
+    rng = np.random.default_rng(seed)
+    W1 = rng.normal(0, 1, (2, 2)); b1 = np.zeros(2); W2 = rng.normal(0, 1, (2, 1)); b2 = np.zeros(1)
+    for step in range(5001):
+        h = np.tanh(X @ W1 + b1); a = sig(h @ W2 + b2)
+        dz2 = (a - y) / 4
+        dW2 = h.T @ dz2; db2 = dz2.sum(0)
+        dz1 = (dz2 @ W2.T) * (1 - h ** 2)          ## blame through W2, then through tanh
+        dW1 = X.T @ dz1; db1 = dz1.sum(0)
+        for p, g in ((W1, dW1), (b1, db1), (W2, dW2), (b2, db2)): p -= 1.0 * g
+    loss = -np.mean(y * np.log(a) + (1 - y) * np.log(1 - a))
+    print(f"seed {seed}: final loss {loss:.4f}  predictions {a.ravel().round(2)}")''')
+ex(id="13.2", ch="M13", sec="13.4", kind="code", title="Vanishing gradients, measured",
+   q="Push a signal through 30 layers of width 100 and measure the gradient norm reaching layer 1, for: sigmoid with standard init, tanh with Xavier init, and ReLU with He init.",
+   hint="Backward through a layer: g ← Wᵀ(g ⊙ φ′(z)). Track ‖g‖ at the first layer.",
+   answer="The gradient starts with norm 10 at the top. With sigmoid it arrives at layer 1 as about 10⁻¹⁸: each layer multiplies by slopes of at most 0.25, and 30 such factors wipe it out. Tanh with Xavier keeps it around 1, and ReLU with He around 40, the same order of magnitude as where it started. ReLU's slope is exactly 1 for active units, and the 2/n scaling compensates for the half that are off (Murphy §13.4.2–13.4.5).",
+   code='''import numpy as np
+rng = np.random.default_rng(6)
+n, L = 100, 30
+acts = {"sigmoid, N(0,1/n)": (lambda z: 1 / (1 + np.exp(-z)), lambda a, z: a * (1 - a), 1.0),
+        "tanh, Xavier":      (np.tanh, lambda a, z: 1 - a ** 2, 1.0),
+        "ReLU, He":          (lambda z: np.maximum(z, 0), lambda a, z: (z > 0) * 1.0, 2.0)}
+for name, (f, df, gain) in acts.items():
+    Ws = [rng.normal(0, np.sqrt(gain / n), (n, n)) for _ in range(L)]
+    x = rng.normal(size=n); cache = []
+    for W in Ws:
+        z = W @ x; a = f(z); cache.append((z, a)); x = a
+    g = np.ones(n)
+    for W, (z, a) in zip(reversed(Ws), reversed(cache)):
+        g = W.T @ (g * df(a, z))              ## chain rule through one layer
+    print(f"{name:20s} gradient norm at layer 1: {np.linalg.norm(g):.3e}")''')
+ex(id="13.3", ch="M13", sec="13.5", kind="code", title="Why dropout divides by (1 − p)",
+   q="Apply inverted dropout with p = 0.5 to a vector of ones 100,000 times. Check that the average output is still 1. Then show what goes wrong without the division.",
+   hint="mask = rng.random(n) > p; out = h * mask / (1 − p).",
+   answer="With the division the average is ≈ 1, so a neuron downstream sees the same expected input in training and at test time (when dropout is off). Without it the average is ≈ 0.5, and the network would see inputs twice as large at test time as it was trained on (Murphy §13.5.4).",
+   code='''import numpy as np
+rng = np.random.default_rng(7)
+h = np.ones(100_000); p = 0.5
+mask = rng.random(h.size) > p
+with_scale = h * mask / (1 - p)              ## inverted dropout: rescale the survivors
+without = h * mask
+print(f"mean with 1/(1-p): {with_scale.mean():.4f}   mean without: {without.mean():.4f}")''')
+ex(id="13.4", ch="M13", sec="13.3", kind="derive", title="Backprop for one hidden layer, in matrices",
+   q="For h = ReLU(XW₁ + b₁), ŷ = hW₂ + b₂, L = ‖ŷ − Y‖²/(2N), derive ∂L/∂W₂, ∂L/∂h, ∂L/∂W₁. Check that the shapes match.",
+   hint="Start from ∂L/∂ŷ = (ŷ − Y)/N and use station 4's rules: multiply passes blame by the other input; ReLU passes it only where the unit was on.",
+   answer="δ₂ = ∂L/∂ŷ = (ŷ − Y)/N (N×K). ∂L/∂W₂ = hᵀδ₂ (H×K, matches W₂). ∂L/∂b₂ = Σ rows of δ₂. ∂L/∂h = δ₂W₂ᵀ (N×H). Through ReLU: δ₁ = (δ₂W₂ᵀ) ⊙ 𝟙(XW₁ + b₁ > 0). ∂L/∂W₁ = Xᵀδ₁ (D×H, matches W₁). Every weight gradient is (input to that layer)ᵀ × (blame at its output), which is the matrix version of 'times the other input' (Murphy §13.3.2).")
+
+# ---------------- Chapter 14 ----------------
+ex(id="14.1", ch="M14", sec="14.2", kind="code", title="Convolution and pooling from scratch",
+   q="Write conv2d (valid, stride 1) and 2×2 max-pooling with NumPy loops. Apply a vertical-edge kernel to an image whose left half is dark and right half bright, then pool. Check the conv result against a vectorised version using sliding windows.",
+   hint="np.lib.stride_tricks.sliding_window_view(x, (3, 3)) gives every 3×3 patch.",
+   answer="The edge kernel responds only along the boundary column, and pooling keeps that response while halving the size. The loop and the vectorised version agree exactly: a convolution is the same small dot product at every position (Murphy §14.2.1–14.2.2).",
+   code='''import numpy as np
+x = np.zeros((8, 8)); x[:, 4:] = 1.0
+K = np.array([[-1, 0, 1]] * 3, dtype=float)
+def conv2d(x, K):
+    k = K.shape[0]; out = np.zeros((x.shape[0] - k + 1, x.shape[1] - k + 1))
+    for i in range(out.shape[0]):
+        for j in range(out.shape[1]):
+            out[i, j] = np.sum(x[i:i + k, j:j + k] * K)   ## one dot product per position
+    return out
+def maxpool(x):
+    H, W = x.shape[0] // 2, x.shape[1] // 2
+    return x[:2 * H, :2 * W].reshape(H, 2, W, 2).max(axis=(1, 3))   ## max over each 2x2 block
+y = conv2d(x, K)
+fast = np.einsum("ijkl,kl->ij", np.lib.stride_tricks.sliding_window_view(x, (3, 3)), K)
+print("conv output row 0:", y[0]); print("loops == vectorised:", np.allclose(y, fast))
+print("after 2x2 max-pool:\\n", maxpool(y))''')
+ex(id="14.2", ch="M14", sec="14.2", kind="think", title="Count the weights",
+   q="A 32×32 RGB image goes into (a) a fully connected layer with 1,024 outputs, (b) a conv layer with 64 filters of size 3×3. How many weights (ignore biases) does each have, and how many outputs?",
+   hint="Dense: inputs × outputs. Conv: k × k × in_channels × out_channels.",
+   answer="(a) 32·32·3 = 3,072 inputs × 1,024 = 3,145,728 weights, 1,024 outputs. (b) 3·3·3·64 = 1,728 weights, and with 'same' padding 32·32·64 = 65,536 outputs. The conv layer has about 1,800× fewer weights yet 64× more outputs, because the same 1,728 numbers are reused at every position (Murphy §14.2.1).")
+ex(id="14.3", ch="M14", sec="14.3", kind="code", title="Why residual connections help, measured",
+   q="Build a 50-layer ReLU network (width 64, weights with std 1/√n) with and without residual connections x ← x + 0.1·ReLU(Wx). Backpropagate a unit gradient and compare its norm at layer 1.",
+   hint="Without a skip the layer Jacobian is W·diag(mask); with one it is I + 0.1·W·diag(mask).",
+   answer="Without skips the gradient shrinks to about 10⁻⁸: each ReLU layer switches off about half the units, so with std 1/√n each layer roughly halves the gradient's energy, and 50 layers compound that. With skips each Jacobian is I + (small term), so there's always a direct identity path back and the gradient arrives with a healthy size (≈ 5). That's why ResNets can be hundreds of layers deep (Murphy §13.4.4, §14.3.4).",
+   code='''import numpy as np
+rng = np.random.default_rng(8)
+n, L = 64, 50
+Ws = [rng.normal(0, 1 / np.sqrt(n), (n, n)) for _ in range(L)]
+x = rng.normal(size=n); xr = x.copy(); masks_p, masks_r = [], []
+for W in Ws:                                       # forward: plain ReLU stack vs residual stack
+    z = W @ x; masks_p.append(z > 0); x = np.maximum(z, 0)
+    zr = W @ xr; masks_r.append(zr > 0); xr = xr + 0.1 * np.maximum(zr, 0)
+g_p = np.ones(n) / 8; g_r = np.ones(n) / 8         # unit-norm gradient arriving from the top
+for W, mp, mr in zip(reversed(Ws), reversed(masks_p), reversed(masks_r)):
+    g_p = W.T @ (g_p * mp)                         # Jacobian of x -> relu(Wx)
+    g_r = g_r + 0.1 * (W.T @ (g_r * mr))           ## Jacobian of x -> x + 0.1 relu(Wx): identity plus a small term
+print(f"plain ReLU stack: |grad at layer 1| = {np.linalg.norm(g_p):.3e}")
+print(f"residual stack:   |grad at layer 1| = {np.linalg.norm(g_r):.3e}")''')

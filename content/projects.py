@@ -160,3 +160,85 @@ print("max possible entropy:", round(np.log2(10), 3))'''),
    answer="PCA showed the 64 pixels really vary along about 20 directions, so the data is far simpler than its raw size. The gradient check guarantees the backward pass matches the loss you wrote, not that the model is good. Adam won early because it scales each weight's step by that weight's typical gradient, so rarely active pixels and busy pixels both get sensible steps from the first iteration.")
  ])
 ]
+
+PROJECTS.append(dict(id="p3", title="A neural network from scratch: beat the linear model",
+ chapters=["M13", "M14", "M8"],
+ blurb="Same handwritten digits as Project 2, but now with a hidden layer you build by hand: He initialisation, ReLU, softmax, a backward pass you derive and gradient-check, minibatch SGD with momentum, then dropout and weight decay. The goal is to beat Project 2's linear softmax model and understand exactly why the hidden layer helps. Uses Murphy ch. 13 (and 8, 14).",
+ steps=[
+  dict(title="Data and one-hot labels", kind="code",
+   q="Load the digits, scale to 0–1, use the same 1,400/397 split as Project 2, and build one-hot label matrices.",
+   answer="One-hot labels make the softmax gradient a clean matrix expression, P − Y. Using the same split as Project 2 makes the comparison fair.",
+   code='''import numpy as np
+from sklearn.datasets import load_digits
+d = load_digits(); X, y = d.data / 16.0, d.target
+idx = np.random.default_rng(0).permutation(len(y))
+Xtr, ytr, Xte, yte = X[idx[:1400]], y[idx[:1400]], X[idx[1400:]], y[idx[1400:]]
+Ytr = np.eye(10)[ytr]                            ## one-hot rows
+print(Xtr.shape, Ytr.shape, Ytr[0])'''),
+  dict(title="Initialise and run the forward pass", kind="code",
+   q="Create a 64 → 128 → 10 network with He initialisation (std √(2/fan_in)), ReLU hidden units and softmax output. Check that the loss at initialisation is close to log 10 ≈ 2.30. Why should it be?",
+   answer="With small random weights the network has no preference, so each class gets about 1/10 and the loss is −log(1/10) = 2.30. A starting loss far from that usually means a bug or a badly scaled initialisation. It's a free sanity check (Murphy §13.4.5).",
+   code='''rng = np.random.default_rng(1)
+def init(h=128):
+    return {"W1": rng.normal(0, np.sqrt(2 / 64), (64, h)), "b1": np.zeros(h),
+            "W2": rng.normal(0, np.sqrt(2 / h), (h, 10)) * 0.1, "b2": np.zeros(10)}
+def softmax(Z):
+    Z = Z - Z.max(1, keepdims=True); E = np.exp(Z); return E / E.sum(1, keepdims=True)
+def forward(P, X):
+    Z1 = X @ P["W1"] + P["b1"]; H = np.maximum(Z1, 0)        ## hidden layer: ReLU
+    return Z1, H, softmax(H @ P["W2"] + P["b2"])
+P = init(); _, _, out = forward(P, Xtr)
+print(f"initial loss {-np.mean(np.log(out[np.arange(1400), ytr])):.4f}   log(10) = {np.log(10):.4f}")'''),
+  dict(title="Backward pass and gradient check", kind="code",
+   q="Write the backward pass (with an optional weight-decay term λ‖W‖²/2) and check 6 random weights against central differences.",
+   answer="Output blame is (P − Y)/N, exactly as in Project 2. It flows back through W₂, is zeroed wherever the ReLU was off, then gives W₁'s gradient as Xᵀ(blame). The analytic and numeric values agree to about 7 digits, so the derivation and the code match (Murphy §13.3).",
+   code='''def loss_grads(P, X, Y, lam=0.0):
+    N = len(X); Z1, H, Pr = forward(P, X)
+    loss = -np.mean(np.log((Pr * Y).sum(1) + 1e-12)) + lam / 2 * (np.sum(P["W1"]**2) + np.sum(P["W2"]**2))
+    d2 = (Pr - Y) / N
+    g = {"W2": H.T @ d2 + lam * P["W2"], "b2": d2.sum(0)}
+    d1 = (d2 @ P["W2"].T) * (Z1 > 0)                  ## blame back through W2, then through ReLU
+    g["W1"] = X.T @ d1 + lam * P["W1"]; g["b1"] = d1.sum(0)
+    return loss, g
+_, g = loss_grads(P, Xtr[:200], Ytr[:200], lam=1e-3)
+for k in ["W1", "W2", "W1", "W2", "b1", "b2"]:
+    i = tuple(int(rng.integers(0, s)) for s in P[k].shape); h = 1e-5
+    P[k][i] += h; lp = loss_grads(P, Xtr[:200], Ytr[:200], 1e-3)[0]; P[k][i] -= 2 * h
+    lm = loss_grads(P, Xtr[:200], Ytr[:200], 1e-3)[0]; P[k][i] += h
+    print(f"{k}{list(i)}  analytic {g[k][i]: .8f}  numeric {(lp - lm) / (2 * h): .8f}")'''),
+  dict(title="Train with minibatch SGD + momentum", kind="code",
+   q="Train for 40 epochs with batch size 64, learning rate 0.1, momentum 0.9 and no regularisation. Print train and test accuracy every 10 epochs. Does it beat Project 2's 97.7%?",
+   answer="Test accuracy reaches ≈ 98.5%, beating the linear model's 97.7%, while training accuracy hits 100% by epoch 30. The hidden layer can carve curved boundaries; on only 1,400 images it also memorises the training set completely, which is the train–test gap.",
+   code='''def accuracy(P, X, y): return np.mean(np.argmax(forward(P, X)[2], 1) == y)
+def train(lam=0.0, drop=0.0, epochs=40, seed=2, verbose=True):
+    r = np.random.default_rng(seed); P = init(); V = {k: np.zeros_like(v) for k, v in P.items()}
+    for ep in range(1, epochs + 1):
+        for b in np.array_split(r.permutation(1400), 1400 // 64):
+            Xb = Xtr[b]
+            if drop: Xb = Xb * (r.random(Xb.shape) > drop) / (1 - drop)   # input dropout (inverted)
+            _, g = loss_grads(P, Xb, Ytr[b], lam)
+            for k in P:
+                V[k] = 0.9 * V[k] + g[k]                ## momentum
+                P[k] -= 0.1 * V[k]
+        if verbose and ep % 10 == 0: print(f"epoch {ep}: train {accuracy(P, Xtr, ytr):.3f}  test {accuracy(P, Xte, yte):.3f}")
+    return P
+P = train()'''),
+  dict(title="Regularise: weight decay and dropout", kind="code",
+   q="Train three more models: weight decay λ = 1e−3, input dropout 0.2, and both. Compare test accuracy across 3 seeds each.",
+   answer="Weight decay helps a little (≈ 98.7% vs 98.3%). Input dropout hurts here (≈ 97.3%), and both together hurt more (≈ 96%). The reason: dropping 20% of only 64 pixels throws away real information on images this small, and 40 epochs isn't enough to recover. Regularisation is a dial, not a free win: it helps when the model overfits more than it starves for signal. Always compare averages over seeds, because single runs differ by a few tenths of a percent (Murphy §13.5).",
+   code='''for name, kw in [("none", {}), ("weight decay", {"lam": 1e-3}), ("dropout 0.2", {"drop": 0.2}), ("both", {"lam": 1e-3, "drop": 0.2})]:
+    accs = [accuracy(train(verbose=False, seed=s, **kw), Xte, yte) for s in (2, 3, 4)]
+    print(f"{name:13s} test accuracy {np.mean(accs):.4f} ± {np.std(accs):.4f}")'''),
+  dict(title="Where does it still fail?", kind="code",
+   q="Build the 10×10 confusion matrix on the test set for the unregularised model and list the three most-confused (true, predicted) pairs.",
+   answer="The remaining errors cluster in a few look-alike pairs (often 1↔8, 3↔8, 9↔5 or 4↔9 in this dataset), rather than being spread at random. A confusion matrix tells you where to look next: more data for those classes, augmentation, or a convolutional layer that sees strokes instead of raw pixels (ch. 14).",
+   code='''pred = np.argmax(forward(P, Xte)[2], 1)
+Cm = np.zeros((10, 10), int)
+for t, p in zip(yte, pred): Cm[t, p] += 1        ## rows = truth, columns = prediction
+off = [(Cm[i, j], i, j) for i in range(10) for j in range(10) if i != j and Cm[i, j]]
+print("errors:", len(yte) - np.trace(Cm), "of", len(yte))
+for c, i, j in sorted(off, reverse=True)[:3]: print(f"true {i} predicted as {j}: {c} times")'''),
+  dict(title="Write-up", kind="think",
+   q="Why did the hidden layer help, why didn't it help more, and what would you try next?",
+   answer="It helped because 128 ReLU units let the model combine pixel evidence non-linearly (e.g. 'a loop at the top and a stroke at the right'), which a single linear score per class can't express. It didn't help more because 1,400 small images give little room: the linear model was already at 97.7%, and the MLP memorises its training set. Next: a small CNN (ch. 14) that shares stroke detectors across positions, plus data augmentation (shifts and small rotations) to create more training variety.")
+ ]))

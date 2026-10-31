@@ -1,64 +1,299 @@
+<div align="center">
+
+<img src="favicon.svg" width="88" alt="Neuron Voxel Lab logo: three input cubes wired into one neuron cube">
+
 # Neuron Voxel Lab
 
-An interactive course through three books, built from the ground floor:
+**Machine learning from first principles: three textbooks, every chapter, built up from a single neuron.**
 
-- Kevin Murphy, *Probabilistic Machine Learning: An Introduction* (Murphy 1)
-- Zhang, Lipton, Li, Smola, *Dive into Deep Learning* (D2L)
-- Kevin Murphy, *Probabilistic Machine Learning: Advanced Topics* (Murphy 2)
+[![Live site](https://img.shields.io/badge/live-neuron--voxel--lab.vercel.app-8fdba4?style=flat-square)](https://neuron-voxel-lab.vercel.app)
+[![Open in Colab](https://img.shields.io/badge/Colab-practice%20notebooks-f3d470?style=flat-square&logo=googlecolab&logoColor=black)](https://colab.research.google.com/github/srivtx/neuron-voxel-lab/blob/main/notebooks/murphy1_ch01_practice.ipynb)
+![No build step](https://img.shields.io/badge/runtime-static%20HTML%20%2B%201%20serverless%20fn-86c3f2?style=flat-square)
+![three.js r128](https://img.shields.io/badge/three.js-r128-f4938f?style=flat-square)
 
-What's inside:
+<img src="docs/screens/course.png" width="900" alt="The course view: a 3D voxel simulation on the left, the chapter page with explanations on the right">
 
-- **Course**: every chapter, section and subsection of all three books (2,660 entries) with page numbers. Murphy 1 ch. 1–8 have hand-written easy + precise explanations; every section has an "Explain this simply (AI)" button and an ask box.
-- **Concept map**: 131 concepts on 11 floors (ground-floor maths → diffusion, transformers, RL), each linked to its prerequisites, what it unlocks, and its sections in all three books, with a learning path.
-- **Skill tree**: the concept map as a progression. Floor-0 ideas start unlocked; answer a concept's check question to mark it done and unlock what it leads to (65 hand-written checks for floors 0–4, AI quizzes above that). Progress is saved in your browser.
-- **Practice**: 35 exercises for Murphy 1 ch. 1–8 (think / derive by hand / code) with hints, hidden worked answers, starter code and solutions. Every solution is executed by `content/build.py`, and the real output is shown. One click opens each chapter's notebook in Colab.
-- **Build projects**: (1) regression from scratch on the diabetes dataset (closed form → GD → ridge + CV → bootstrap), (2) handwritten digits (PCA via SVD → softmax with hand-derived gradients → gradient check → GD vs momentum vs Adam → entropy of predictions). Milestones with questions, starters, solutions, real outputs.
-- **Labs**: 25 voxel simulations (three.js), from Bayes' rule on 2,000 people to LDA vs QDA, ridge vs lasso geometry, k-means and a face autoencoder.
-- **Live equations**: 16 equations with sliders that compute every term.
-- **Symbols decoder**: the 54 symbols the books are written in.
-- **Colab notebook**: `notebooks/Neuron_Voxel_Lab_Autoencoders.ipynb` (NumPy from scratch → CelebA conv autoencoder on an L4).
+</div>
+
+---
+
+## Why this exists
+
+ML textbooks are dense with equations, and most of them can feel like abstraction for its own sake. This site takes the opposite approach. Every idea starts from a concrete picture or a tiny numeric example. Every symbol is named the first time it appears. Every equation comes with a sentence saying *what it computes and why it has that shape*. You can then move the inputs and watch each term change, simulate the idea in 3D, and write it yourself in NumPy.
+
+It covers:
+
+| Book | Short name | Coverage |
+|---|---|---|
+| Kevin P. Murphy, *Probabilistic Machine Learning: An Introduction* (2022) | **Murphy 1** | Full table of contents; ch. 1–14 explained section by section, with labs, live equations and exercises |
+| Aston Zhang, Zachary C. Lipton, Mu Li, Alexander J. Smola, *Dive into Deep Learning* | **D2L** | Full table of contents, chapter summaries, stations and live equations mapped to sections |
+| Kevin P. Murphy, *Probabilistic Machine Learning: Advanced Topics* (2023) | **Murphy 2** | Full table of contents, chapter summaries, concept map links |
+
+Every one of the **2,660** chapters, sections and subsections is in the library, with page numbers. Each one also has an *Explain this simply* button and an ask box backed by an AI tutor.
+
+## Features
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screens/live-equation.png" alt="A live equation with sliders"></td>
+<td width="50%"><img src="docs/screens/skill-tree.png" alt="The skill tree"></td>
+</tr>
+<tr>
+<td><b>Live equations</b>: 21 equations with sliders. Every term is computed and shown, and each coloured symbol says what it means when you tap it.</td>
+<td><b>Skill tree</b>: 131 concepts on 11 floors, from Σ notation to diffusion and RL. Answer a check question to mark a concept done and unlock the ones that build on it.</td>
+</tr>
+<tr>
+<td><img src="docs/screens/lab.png" alt="Ridge vs lasso lab"></td>
+<td><img src="docs/screens/practice.png" alt="Exercises with hints and worked answers"></td>
+</tr>
+<tr>
+<td><b>Voxel labs</b>: 10 build-a-network stations and 15 chapter labs (three.js). Examples: Bayes' rule on 2,000 people, the CLT, bootstrap, ROC curves, SVD, LDA vs QDA, ridge vs lasso geometry, k-means, convolution and a face autoencoder.</td>
+<td><b>Practice</b>: 55 exercises for Murphy 1 ch. 1–14, in three kinds: <i>think</i>, <i>derive by hand</i> and <i>code</i>. Each has a hint, a hidden worked answer and a solution. Every solution is executed at build time, and the real output is shown.</td>
+</tr>
+</table>
+
+- **Easy layer first.** Every explained section opens with a one-line plain-English version, then the precise one.
+- **Build projects** with milestones, questions, starter code and full solutions:
+  1. *Regression from scratch*: diabetes data. Closed form, then gradient descent, then ridge with cross-validation, then bootstrap.
+  2. *Handwritten digits*: PCA via SVD, then softmax with hand-derived gradients, a gradient check, and GD vs momentum vs Adam.
+  3. *A neural network from scratch*: an MLP with backprop, weight decay and dropout. It beats the linear model with 98.5% test accuracy.
+- **Colab notebooks**, one per chapter plus one per project. Solutions are hidden in collapsed cells, and they run on any Colab runtime (an L4 GPU is not required for the practice sets).
+- **Symbols decoder**: the 54 symbols the books are written in, each with its name, meaning and an example.
+- **"Why so many equations?"**: six equations that carry most of deep learning, each linked to the station where you can see it.
+- **Custom-designed controls**: no native dropdowns or default form widgets anywhere; sliders, toggles, segmented buttons and pickers are all styled to the theme. Dark (chalk on slate) and light (graph paper) themes follow your OS.
+- **Keyboard**:
+
+  | Key | Action |
+  |---|---|
+  | <kbd>/</kbd> | Search the library |
+  | <kbd>←</kbd> <kbd>→</kbd> | Previous / next chapter |
+  | <kbd>c</kbd> | Course view |
+  | <kbd>t</kbd> | Skill tree |
+  | <kbd>p</kbd> | Projects |
+  | <kbd>s</kbd> | Symbols decoder |
+  | <kbd>?</kbd> | Show all shortcuts |
+  | <kbd>Esc</kbd> | Close |
+
+- **Deep links**:
+  - `#M10` opens Murphy 1, chapter 10;
+  - `#D7` opens D2L chapter 7;
+  - `#A21` opens Murphy 2, chapter 21;
+  - `#c-backprop` opens a concept;
+  - `#s5` opens a station.
+- **Progress stays in your browser** (localStorage). There are no accounts and no tracking.
+- **Works on phones**: the layout reflows, and the 3D view supports touch orbit and pinch zoom.
+
+<p align="center"><img src="docs/screens/phone.png" width="260" alt="The site on a phone, light theme"></p>
+
+## Architecture
+
+```mermaid
+flowchart LR
+  subgraph Browser
+    A[index.html<br/>single file: UI + three.js voxel engine<br/>+ all course content as data] -->|POST /api/ask<br/>x-session, x-access-code| B
+    A -.->|localStorage| P[(progress, AI answer cache)]
+  end
+  subgraph Vercel
+    B[api/ask.js<br/>serverless function<br/>holds OPENCODE_API_KEY<br/>rate limit · validation · timeouts]
+  end
+  B -->|Bearer key + x-opencode-session| C[OpenCode Go<br/>deepseek-v4.1-flash]
+  subgraph Build time
+    E[content/exercises.py<br/>content/projects.py] --> F[content/build.py<br/>runs every solution] --> G[src/practice.json<br/>notebooks/*.ipynb]
+    H[src/p*.js, p1.html, toc.json] --> I[src/build.sh] --> A
+    G --> I
+  end
+```
+
+- **No framework, no bundler, no client-side dependencies to install.** The site is one static `index.html` (about 650 KB, mostly course text) plus three.js r128 from a CDN.
+- **The API key never reaches the browser.** It lives only in a Vercel environment variable read by `api/ask.js`.
+- **Content is data**: chapter intros (`CHI`), section explanations (`SEC`), the easy layer (`EASY`), live equations (`LIVE`), concepts (`CONCEPTS`) and checks (`CHECKS`). Adding a section's explanation means adding one object entry.
+
+## Quick start
+
+```bash
+git clone https://github.com/srivtx/neuron-voxel-lab.git
+cd neuron-voxel-lab
+
+# Just look at it: open index.html in a browser (AI buttons need the API, see below)
+python3 -m http.server 8000   # → http://localhost:8000
+
+# Full local dev with the AI tutor
+cp .env.example .env.local    # put your OpenCode key in it
+npx vercel dev                # serves index.html + /api/ask on http://localhost:3000
+```
 
 ## Deploy on Vercel
 
-1. Push this folder to GitHub, then import it at vercel.com/new. No framework or build command needed; `index.html` is static and `api/ask.js` becomes a serverless function.
-2. In **Settings → Environment Variables**, add:
-   - `OPENCODE_API_KEY`: your OpenCode key (never put it in the HTML).
-   - `ACCESS_CODE` (recommended for a public site): a passphrase visitors type once before asking, so strangers can't spend your budget.
-   - `OPENCODE_MODELS` (optional): model order. Default: `beam-free,iceman-contributor-free,zen:deepseek-v4-flash-free,deepseek-v4.1-flash` (free first; `deepseek-v4.1-flash` only if every free one fails).
-3. Redeploy. The ask boxes and "Explain" buttons now work.
+1. Import the repo at [vercel.com/new](https://vercel.com/new). There is no framework preset or build command to set: `index.html` is static, and `api/ask.js` becomes a serverless function automatically.
+2. Add environment variables (**Settings → Environment Variables**):
 
-Notes: DeepSeek V4.1 Flash needs **Global** selected under Regions in your OpenCode Settings › Privacy. Models named `*-contributor-*` may use your requests for training.
+   | Variable | Required | Default | What it does |
+   |---|---|---|---|
+   | `OPENCODE_API_KEY` | yes | none | Your OpenCode key. Server-side only. |
+   | `OPENCODE_MODELS` | no | `deepseek-v4.1-flash` | Comma-separated models to try in order. Prefix `zen:` to use the Zen endpoint instead of Go. **Leave unset** unless you have a reason. |
+   | `ACCESS_CODE` | recommended for public sites | none | A passphrase visitors type once before asking, so strangers can't spend your budget. |
+   | `RATE_LIMIT_PER_MIN` | no | `12` | Questions per IP per minute (per warm instance). |
+   | `RATE_LIMIT_PER_DAY` | no | `300` | Questions per IP per day (per warm instance). |
 
-## If asking fails ("Every model failed")
+3. In your OpenCode account, open **Settings → Privacy → Regions** and select **Global**. DeepSeek models are only served when Global is allowed.
+4. Redeploy, then open `/api/ask?diag=1` to confirm. It should list `deepseek-v4.1-flash` under `working`.
 
-Open `https://YOUR-SITE.vercel.app/api/ask?diag=1` (add `&code=YOUR_ACCESS_CODE` if you set one). It tries every model on every endpoint and shows exactly what OpenCode answered for each: `401` = key not accepted (check the variable name and that you redeployed after adding it), `404` = wrong model or URL shape, `429` = rate limited, `402`/`403` = plan, region or billing setting. The error message in the site's ask box now includes the same details.
+`vercel.json` sets a strict Content-Security-Policy, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, long caching for icons and `no-store` for the API, and gives the function 60 s.
 
-## Practice content
+## API reference
 
-Exercises live in `content/exercises.py` and projects in `content/projects.py`. `python3 content/build.py` runs every solution, records its output, and regenerates `src/practice.json` and the notebooks in `notebooks/`. In a solution, end a line with `## hint` to turn it into a TODO in the starter version.
+### `POST /api/ask`
 
-## Local development
+Ask the tutor. The server adds the system prompt.
 
-```bash
-cp .env.example .env.local   # then put your key in it
-npx vercel dev               # serves index.html + /api/ask on localhost:3000
+```http
+POST /api/ask
+Content-Type: application/json
+x-session: nvl-k3j2h1g9f8      # optional, [\w-]{8,64}; keeps one OpenCode session per learner
+x-access-code: …               # required only if ACCESS_CODE is set
+
+{ "messages": [ { "role": "user", "content": "Why is the logistic loss convex?" } ] }
 ```
 
-## Editing
+The request:
+- may contain 1–24 messages;
+- uses only the roles `user` and `assistant`;
+- has at most 30,000 characters in total.
 
-Edit the parts in `src/`, then run `npm run build:site` to regenerate `index.html`.
+| Status | Body | Meaning |
+|---|---|---|
+| `200` | `{ "text": "…", "model": "deepseek-v4.1-flash" }` | Answer |
+| `400` | `{ "error": "…" }` | Malformed messages |
+| `401` | `{ "error": "Access code needed." }` | `ACCESS_CODE` set and header missing or wrong |
+| `413` | `{ "error": "…" }` | Question too long |
+| `429` | `{ "error": "…" }` + `Retry-After` | Rate limited |
+| `500` | `{ "error": "…" }` | `OPENCODE_API_KEY` not set |
+| `502` | `{ "error": "Every model failed: …", "tried": [ … ] }` | Upstream failure; the error lists each model, endpoint and status it tried |
 
-| File | What it holds |
+Behaviour:
+- Each model is tried against both OpenCode Go URL shapes (`/zen/go/v1/…` and `/inference/go/openai/v1/…`).
+- The URL that answered is remembered while the function stays warm.
+- An auth error (`401`/`403`) skips the remaining URLs for that model.
+- The whole call is bounded to 55 s.
+
+### `GET /api/ask?diag=1`
+
+A health check. Add `&code=…` if `ACCESS_CODE` is set. It sends a 5-token ping to every configured model and endpoint, then reports what came back:
+
+```json
+{
+  "keySet": true,
+  "keyPrefix": "sk-abc…",
+  "models": ["deepseek-v4.1-flash"],
+  "checks": [{ "model": "deepseek-v4.1-flash", "endpoint": "/zen/go/v1/chat/completions", "status": 200, "detail": "ok" }],
+  "working": ["deepseek-v4.1-flash via /zen/go/v1/chat/completions"]
+}
+```
+
+The key itself is never returned; only its first six characters are.
+
+## Content pipeline
+
+Exercises and projects are Python source files whose solutions are **executed**, so every answer on the site matches real output.
+
+```bash
+python3 content/build.py
+# runs every exercise + project solution, captures stdout,
+# writes src/practice.json and notebooks/murphy1_chNN_practice.ipynb, notebooks/project_pN.ipynb
+
+bash src/build.sh          # or: npm run build:site
+# concatenates src/ parts + practice.json + toc.json → index.html
+```
+
+- End a solution line with `## some hint` and the starter version replaces it with `# TODO: some hint`.
+- Notebooks put each solution in a collapsed cell (`cellView: form`) and each worked answer in a `<details>` block, so you can try first.
+- Colab links point to `notebooks/` on the `main` branch of this repo.
+
+To add a section explanation, add an entry to the `SEC` / `EASY` objects. For example, in `src/p8.js`:
+
+```js
+Object.assign(SEC,  { "M15.2": { t: "Plain-English explanation…", eq: ["the equation", "what it computes"], sim: "s5" } });
+Object.assign(EASY, { "M15.2": "One-line version." });
+```
+
+The key is the book letter (`M` = Murphy 1, `D` = D2L, `A` = Murphy 2) plus the section number from `src/toc.json`.
+
+## Project structure
+
+```
+.
+├── index.html               # generated: the whole site
+├── api/ask.js               # serverless AI proxy (the only place the key exists)
+├── vercel.json              # function timeout, security headers, caching
+├── favicon.svg, *.png       # icons; og.png is the social preview
+├── manifest.webmanifest
+├── src/
+│   ├── build.sh             # assembles index.html
+│   ├── p1.html              # layout, design tokens (dark + light), panels
+│   ├── p2.js                # voxel engine, label layout, tiny NN library, stations 1–10
+│   ├── p4.js                # lab framework + Murphy 1 ch. 1–8 labs
+│   ├── p5easy.js, p5.js     # easy layer, chapter intros, section text, chapter pages
+│   ├── p6a.js               # concepts (131), floors, symbols (54)
+│   ├── p6b.js               # live equations, AI client, library, concept tower
+│   ├── p7a.js               # concept check questions
+│   ├── p7b.js               # skill-tree progression, practice + projects UI, ch. 9/11/21 labs
+│   ├── p8.js                # Murphy 1 ch. 9–14 explanations + live equations
+│   ├── p3.js                # station content, ask box, routing, app shell
+│   ├── toc.json             # every section of all three books
+│   └── practice.json        # generated by content/build.py
+├── content/
+│   ├── exercises.py         # 55 exercises
+│   ├── projects.py          # 3 build projects
+│   └── build.py             # runs solutions → practice.json + notebooks
+├── notebooks/               # Colab notebooks (generated + the autoencoder notebook)
+└── docs/screens/            # README screenshots
+```
+
+## Troubleshooting
+
+| Symptom | Fix |
 |---|---|
-| `src/p1.html` | Layout, design tokens, station panels |
-| `src/p2.js` | Voxel engine, tiny neural-net library, stations 1–10 |
-| `src/p4.js` | Lab framework and the Murphy ch. 1–8 labs |
-| `src/p5easy.js`, `src/p5.js` | Easy layer, chapter intros, section explanations, chapter pages |
-| `src/p6a.js` | Concept map data and symbols |
-| `src/p6b.js` | Live equations, AI client, library, concept tower |
-| `src/p7a.js` | Concept check questions (floors 0–4) |
-| `src/p7b.js` | Skill-tree progression, practice + project UI, labs for ch. 9, 11, 21 |
-| `src/practice.json` | Generated by `content/build.py` |
-| `src/p3.js` | Station content, ask box, app shell |
-| `src/toc.json` | Every section of all three books |
-| `api/ask.js` | Server: OpenCode fallback chain (holds the key) |
+| Ask box says *Every model failed* | Open `/api/ask?diag=1`. The status code tells you what went wrong: `401` means the key wasn't accepted (check the variable name, and redeploy after adding it); `400 … x-opencode-session` means you are running an old `ask.js`; `403`/`402` means the region or billing setting is wrong (enable **Global** for DeepSeek); `404` means the model name is wrong; `429` means you are rate limited. |
+| AI works for a while, then fails | Look for an old `OPENCODE_MODELS` variable in Vercel that still lists free models. Delete it so the default `deepseek-v4.1-flash` is used. |
+| *Access code needed* | You set `ACCESS_CODE`. Enter it in the ask box when prompted (it's stored in your browser). |
+| 3D view is blank | WebGL is disabled or blocked. Try another browser, or enable hardware acceleration. |
+| AI buttons do nothing inside a claude.ai preview | Expected: artifact previews block network calls. Use the deployed site. |
+| Progress disappeared | Progress is per browser and is lost if you clear site data or use a private window. |
+
+## Security
+
+- The OpenCode key is only ever read from `process.env` on the server. `.env*` files are git-ignored (except `.env.example`).
+- Input is validated (roles, counts, size). The per-IP rate limit and optional `ACCESS_CODE` protect your budget.
+- The CSP only allows scripts from `self`, cdnjs and jsdelivr; styles and fonts from Google Fonts; and network calls to `self`.
+- If a key is ever pasted somewhere public (a chat, an issue, a commit), **rotate it** in OpenCode.
+
+## Roadmap
+
+- [ ] Section-by-section explanations for Murphy 1 ch. 15–23
+- [ ] Section-by-section explanations for D2L and Murphy 2 (today they have chapter summaries, stations and AI explain)
+- [ ] Exercises for later chapters, and projects 4–6 (a CNN from scratch, a tiny transformer, a VAE)
+- [ ] Check questions for floors 5–10 (AI-generated quizzes for now)
+
+## Contributing
+
+Issues and pull requests are welcome. Keep the house style:
+- concrete example first;
+- name every symbol;
+- say what each equation computes and why it has that shape;
+- plain characters, not LaTeX.
+
+For practice content, run `python3 content/build.py` so the answers match real outputs. Then run `bash src/build.sh` and check the page in a browser before opening a PR.
+
+## Credits
+
+- Built by **[Sribatsha Dash (@srivtx)](https://github.com/srivtx)**.
+- The course follows the structure of three excellent books, all freely available from their authors:
+  - Kevin P. Murphy, [*Probabilistic Machine Learning: An Introduction*](https://probml.github.io/pml-book/book1.html), MIT Press, 2022;
+  - Kevin P. Murphy, [*Probabilistic Machine Learning: Advanced Topics*](https://probml.github.io/pml-book/book2.html), MIT Press, 2023;
+  - Aston Zhang, Zachary C. Lipton, Mu Li, Alexander J. Smola, [*Dive into Deep Learning*](https://d2l.ai), Cambridge University Press, 2023.
+- The explanations, simulations and exercises here are original. The section titles and page numbers point back to the books. This project is **not affiliated with or endorsed by** the authors or publishers; please read and cite the books themselves.
+- 3D rendering by [three.js](https://threejs.org). AI answers by DeepSeek V4.1 Flash via [OpenCode](https://opencode.ai).
+
+## License
+
+No license has been chosen yet, so all rights are reserved by the author for now. If you'd like to reuse something, open an issue.

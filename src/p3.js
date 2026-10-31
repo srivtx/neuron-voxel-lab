@@ -521,7 +521,20 @@ function boot() {
   $("#why-btn").onclick = () => $("#why").hidden = false;
   $("#why-close").onclick = () => $("#why").hidden = true; $("#why-go").onclick = () => { $("#why").hidden = true; goChapter("M1"); };
   $("#why").addEventListener("click", e => { if (e.target.id === "why") $("#why").hidden = true; });
-  addEventListener("keydown", e => { if (e.key === "Escape") { $("#why").hidden = true; $$(".drawer").forEach(d => d.hidden = true); } });
+  addEventListener("keydown", e => {
+    if (e.key === "Escape") { $("#why").hidden = true; $$(".drawer").forEach(d => d.hidden = true); const k = $(".kbd-help"); k && k.remove(); return; }
+    const t = e.target, typing = t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
+    if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === "/") { e.preventDefault(); openLibrary(); setTimeout(() => { const i = $("#lib-q"); i && i.focus(); }, 30); }
+    else if (e.key === "ArrowRight" && mode !== "concept" && !$$(".drawer").some(d => !d.hidden)) stepChapter(1);
+    else if (e.key === "ArrowLeft" && mode !== "concept" && !$$(".drawer").some(d => !d.hidden)) stepChapter(-1);
+    else if (e.key === "t") goConcept(selC);
+    else if (e.key === "c") goChapter(curChap || "M1");
+    else if (e.key === "p") openProjects();
+    else if (e.key === "s") openSymbols();
+    else if (e.key === "?") { const old = $(".kbd-help"); if (old) { old.remove(); return; } const k = document.createElement("div"); k.className = "kbd-help"; k.setAttribute("role", "dialog");
+      k.innerHTML = [["/", "search the library"], ["← →", "previous / next chapter"], ["c", "course view"], ["t", "skill tree"], ["p", "build projects"], ["s", "symbols decoder"], ["Esc", "close panels"], ["?", "toggle this help"]].map(([a, b]) => `<div><kbd>${a}</kbd>${b}</div>`).join(""); document.body.appendChild(k); }
+  });
   let start = location.hash.slice(1), seen = null;
   try { seen = localStorage.getItem("nvl-station"); } catch (e) { }
   try { seen = localStorage.getItem("nvl-where"); } catch (e) { }

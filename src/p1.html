@@ -1,4 +1,4 @@
-<title>Neuron Voxel Lab</title>
+<title>Neuron Voxel Lab · machine learning from first principles</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Caveat:wght@600&family=JetBrains+Mono:wght@400;600&display=swap">
@@ -28,8 +28,8 @@ body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:1
 .top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 20px;padding-block:10px;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));border-bottom:1px solid var(--line);background:var(--panel)}
 .brand{display:flex;align-items:center;gap:12px;min-width:0}
-.logo{width:30px;height:30px;flex:none;display:grid;grid-template-columns:repeat(3,1fr);gap:2px}
-.logo i{background:var(--c2);border-radius:1px}.logo i:nth-child(5){background:var(--c1)}.logo i:nth-child(2),.logo i:nth-child(8){background:var(--c3)}.logo i:nth-child(1),.logo i:nth-child(3),.logo i:nth-child(7),.logo i:nth-child(9){opacity:.25}
+.logo{width:34px;height:34px;flex:none;display:block}
+
 h1{font-family:var(--f-display);font-weight:700;font-size:22px;line-height:1;margin:0}
 .brand p{margin:3px 0 0;color:var(--muted);font-size:12.5px}
 .tabs{display:flex;gap:3px;overflow-x:auto;max-width:100%;scrollbar-width:thin}
@@ -178,7 +178,7 @@ body{background-color:var(--bg)}
 h1{font-family:var(--f-display);font-weight:800;letter-spacing:-.01em;font-size:21px}
 h2{font-family:var(--f-display);font-weight:800;letter-spacing:-.015em;font-size:28px;line-height:1.08}
 .eyebrow{font-family:var(--f-mono);font-weight:600;letter-spacing:.07em}
-.logo i{border-radius:2px}
+
 .block,.sec,.live{border-radius:10px;box-shadow:0 1px 0 var(--line)}
 .btn,.nb-btn,.iconbtn,.crumb,.chip,.booktab,.chtile,.hit,.ref{transition:border-color .15s,background .15s,transform .1s}
 .btn:active,.nb-btn:active,.iconbtn:active,.chtile:active{transform:translateY(1px)}
@@ -237,7 +237,8 @@ input[type=range]:focus-visible{outline:2px solid var(--c4);outline-offset:2px}
 .chgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px}
 .chtile{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto auto;gap:2px 10px;text-align:left;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:10px 12px;cursor:pointer;min-width:0}
 .chtile:hover{border-color:var(--c4)}.chtile.cur{border-color:var(--c4);background:color-mix(in srgb,var(--c4) 10%,var(--card))}
-.chn{grid-row:1/4;font:800 30px/1 var(--f-display);color:var(--muted)}.cht{font:700 13.5px var(--f-body);min-width:0}.chm{font:11px var(--f-mono);color:var(--muted)}
+.chn{grid-row:1/4;font:800 30px/1 var(--f-display);color:var(--muted)}.cht{font:700 13.5px var(--f-body);min-width:0}.chm{font:11px var(--f-mono);color:var(--muted)}.exb{color:var(--c2)}.exb.all{color:var(--c3);font-weight:600}
+.kbd-help{position:fixed;right:16px;bottom:16px;z-index:60;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font:12.5px var(--f-body);color:var(--ink);box-shadow:0 10px 30px rgba(0,0,0,.25);max-width:min(320px,calc(100vw - 32px))}.kbd-help kbd{font:600 11px var(--f-mono);border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 6px;margin-right:6px;background:var(--card)}.kbd-help div{margin:4px 0}
 .bar{height:4px;background:var(--line);border-radius:2px;overflow:hidden;margin-top:4px}.bar i{display:block;height:100%;background:var(--c3)}
 .lh{font:700 13px var(--f-display);margin:4px 0}
 .hits{display:flex;flex-direction:column;gap:4px}
@@ -292,7 +293,7 @@ pre.out{font:11.5px/1.5 var(--f-mono);background:var(--bg);color:var(--c3);borde
 <div class="app">
 <header class="top">
   <div class="brand">
-    <div class="logo" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#121a17"/><rect x="1.5" y="1.5" width="61" height="61" rx="12.5" fill="none" stroke="#2c3c35" stroke-width="1.5"/><g transform="translate(0 4.5)"><polygon points="32.00,-3.25 40.23,1.50 32.00,6.25 23.77,1.50" fill="#fbe9a8"/><polygon points="23.77,1.50 32.00,6.25 32.00,15.75 23.77,11.00" fill="#f3d470"/><polygon points="40.23,1.50 40.23,11.00 32.00,15.75 32.00,6.25" fill="#c4a645"/><polygon points="9.79,22.88 18.01,27.62 9.79,32.38 1.56,27.62" fill="#f9bdb9"/><polygon points="1.56,27.62 9.79,32.38 9.79,41.88 1.56,37.12" fill="#f4938f"/><polygon points="18.01,27.62 18.01,37.12 9.79,41.88 9.79,32.38" fill="#c96a66"/><polygon points="32.00,22.88 40.23,27.62 32.00,32.38 23.77,27.62" fill="#b8dcf8"/><polygon points="23.77,27.62 32.00,32.38 32.00,41.88 23.77,37.12" fill="#86c3f2"/><polygon points="40.23,27.62 40.23,37.12 32.00,41.88 32.00,32.38" fill="#5a93c2"/><polygon points="54.21,22.88 62.44,27.62 54.21,32.38 45.99,27.62" fill="#b6f0c6"/><polygon points="45.99,27.62 54.21,32.38 54.21,41.88 45.99,37.12" fill="#8fdba4"/><polygon points="62.44,27.62 62.44,37.12 54.21,41.88 54.21,32.38" fill="#5fa877"/><line x1="9.8" y1="27.6" x2="32.0" y2="11.0" stroke="#ebf0e7" stroke-width="2.2" stroke-linecap="round"/><line x1="32.0" y1="27.6" x2="32.0" y2="11.0" stroke="#ebf0e7" stroke-width="2.2" stroke-linecap="round"/><line x1="54.2" y1="27.6" x2="32.0" y2="11.0" stroke="#ebf0e7" stroke-width="2.2" stroke-linecap="round"/><circle cx="9.8" cy="27.6" r="2" fill="#ebf0e7"/><circle cx="32.0" cy="27.6" r="2" fill="#ebf0e7"/><circle cx="54.2" cy="27.6" r="2" fill="#ebf0e7"/></g></svg>
     <div><h1>Neuron Voxel Lab</h1><p>Three books, every chapter, built from the ground floor</p></div>
   </div>
   <nav class="booknav" aria-label="Navigate">

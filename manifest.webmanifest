@@ -1,0 +1,14 @@
+{
+  "name": "Neuron Voxel Lab",
+  "short_name": "Voxel Lab",
+  "description": "Machine learning from first principles: three textbooks, every chapter, with voxel simulations, live equations, exercises and projects.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#121a17",
+  "theme_color": "#121a17",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

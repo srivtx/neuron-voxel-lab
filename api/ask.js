@@ -1,5 +1,5 @@
 // Vercel serverless function: the only place the OpenCode key exists.
-// POST {messages} → tries free models first, then the cheap paid one.
+// POST {messages} → asks DeepSeek V4.1 Flash on OpenCode Go (or the models in OPENCODE_MODELS, in order).
 // GET /api/ask?diag=1 → checks every endpoint/model and reports what OpenCode answered (never the key).
 
 // OpenCode documents two URL shapes for Go models; we try both and remember which one works.
@@ -17,6 +17,25 @@ const SYSTEM = `You are the tutor inside "Neuron Voxel Lab", a site that teaches
 
 const MAX_CHARS = 30000;
 let workingEndpoint = {}; // model -> endpoint that answered last time (survives while the function is warm)
+
+// Best-effort rate limit per IP, per warm instance: protects the key's budget from a runaway tab or a scraper.
+// It is not a global guarantee (instances don't share memory); set ACCESS_CODE for a hard gate.
+const PER_MIN = Math.max(1, +process.env.RATE_LIMIT_PER_MIN || 12);
+const PER_DAY = Math.max(PER_MIN, +process.env.RATE_LIMIT_PER_DAY || 300);
+const hits = new Map(); // ip -> array of timestamps (ms)
+function rateLimited(ip) {
+  const now = Date.now(), day = 86400000;
+  const list = (hits.get(ip) || []).filter(t => now - t < day);
+  const lastMin = list.filter(t => now - t < 60000).length;
+  if (lastMin >= PER_MIN) return Math.ceil((60000 - (now - list.filter(t => now - t < 60000)[0])) / 1000);
+  if (list.length >= PER_DAY) return Math.ceil((day - (now - list[0])) / 1000);
+  list.push(now); hits.set(ip, list);
+  if (hits.size > 5000) for (const [k, v] of hits) if (!v.length || now - v[v.length - 1] > day) hits.delete(k);
+  return 0;
+}
+function clientIp(req) {
+  return String(req.headers["x-forwarded-for"] || req.headers["x-real-ip"] || req.socket?.remoteAddress || "?").split(",")[0].trim();
+}
 
 function models() {
   return (process.env.OPENCODE_MODELS || DEFAULT_MODELS).split(",").map(s => s.trim()).filter(Boolean);
@@ -71,6 +90,8 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Use POST." });
   if (!key) return res.status(500).json({ error: "The server has no OPENCODE_API_KEY. Add it in Vercel → Settings → Environment Variables, then redeploy." });
   if (code && req.headers["x-access-code"] !== code) return res.status(401).json({ error: "Access code needed." });
+  const wait = rateLimited(clientIp(req));
+  if (wait) { res.setHeader("Retry-After", String(wait)); return res.status(429).json({ error: `Too many questions in a short time. Try again in ${wait < 120 ? wait + " s" : Math.ceil(wait / 60) + " min"}.` }); }
 
   let body = req.body;
   if (typeof body === "string") { try { body = JSON.parse(body); } catch { body = null; } }

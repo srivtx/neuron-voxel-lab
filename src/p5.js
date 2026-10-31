@@ -112,7 +112,7 @@ function renderChapter(b, n, ch) {
   const key = b + n, info = CHI[key], old = chInfo(b, n), rows = TOC[b].filter(x => x[0].split(".")[0] === n && x[0].includes(".")), secs = rows.filter(x => x[0].split(".").length === 2);
   const sims = info ? info.sims : old ? old[6] : [], explained = secs.filter(s => SEC[b + s[0]]).length;
   const why = info ? info.why : old ? old[5] : "This chapter's sections are listed below. Explanations and labs are coming in a later pass; you can already ask about any section.";
-  const status = explained ? `<span class="pill ok">${explained} of ${secs.length} sections explained</span>` : `<span class="pill">sections listed · explanations coming</span>`;
+  const status = explained ? `<span class="pill ok">${explained} of ${secs.filter(x => !/^(Exercises|Summary)$/.test(x[1].trim())).length} sections explained</span>` : `<span class="pill">sections listed · explanations coming</span>`;
   const v = $("#chapview");
   v.innerHTML = `<div><p class="eyebrow">${esc(BOOKN[b])} · chapter ${n} · p. ${ch[2]}</p><h2>${esc(ch[1].replace(/\s*\*$/, ""))}</h2>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px">${status}${sims.length ? `<span class="pill">${sims.length} lab${sims.length > 1 ? "s" : ""}</span>` : ""}${/\*$/.test(ch[1]) ? `<span class="pill">* advanced chapter</span>` : ""}</div>
