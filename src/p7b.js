@@ -496,3 +496,76 @@ lab("a8kalman", {
   },
   state() { return `Kalman filter lab (Q=${this.p.Q}, R=${this.p.R}, step ${this.est.length}/${this.truth.length}): Kalman gain K=${f2(this.K)}, posterior var P=${f3(this.P)}.`; }
 });
+
+/* Murphy 2 ch. 10, 11, 12: MCMC (Metropolis-Hastings) on a two-mode 3D posterior */
+lab("a12mcmc", {
+  title: "MCMC: sample a two-peak posterior knowing only ratios", tab: "MCMC sampler", cam: [[0, 16, 17], [0, 1.2, 0]],
+  how: "The teal terrain is an unnormalised target p̃(x) with two peaks (30% left, 70% right). Metropolis–Hastings proposes a Gaussian step of size σ and accepts with probability min(1, p̃(x′)/p̃(x)). Try σ = 0.15 (high acceptance, but trapped in one peak) vs σ = 2.8 (almost every jump lands in the flat desert and is rejected) vs σ ≈ 0.9 (crosses between peaks in the right 30/70 ratio).",
+  legend: () => `<b>Target density p̃(x) & Markov chain visits</b><div class="row"><span><i class="sw" style="background:var(--c2)"></i>target p̃(x)</span><span><i class="sw" style="background:var(--c1)"></i>visited samples</span><span><i class="sw" style="background:var(--c4)"></i>current state</span></div>`,
+  ctl: [
+    { s: "sig", label: "Proposal step size σ", min: 0.1, max: 3, step: 0.05, v: 0.85, fmt: f2 },
+    { s: "sep", label: "Peak separation", min: 0.8, max: 2.4, step: 0.1, v: 1.5, fmt: f2 },
+    { btns: [["one", "1 step", true], ["h100", "100 steps"], ["h500", "500 steps"], ["reset", "Reset chain"]] }
+  ],
+  stats: [["n", "Samples"], ["acc", "Accept rate"], ["right", "In right peak (true ≈ 70%)"]],
+  chart: "Trace plot of coordinate x₁ over time (crossing 0 = mode jump)",
+  chartLegend: `<span><i style="background:var(--c1)"></i>x₁(t) trace</span>`,
+  init() { this.r = rng(33); this.reset(); },
+  target(x, y) {
+    const d = this.p.sep;
+    const g1 = 0.3 * Math.exp(-((x + d) ** 2 + (y + 0.4) ** 2) / 0.55);
+    const g2 = 0.7 * Math.exp(-((x - d) ** 2 + (y - 0.4) ** 2) / 0.65);
+    return g1 + g2 + 1e-12;
+  },
+  reset() {
+    this.cur = [-this.p.sep, -0.4]; this.samples = [this.cur.slice()]; this.acc = 0; this.tries = 0;
+    for (let i = 0; i < 60; i++) this.stepOne();
+    this.refresh();
+  },
+  stepOne() {
+    const [x, y] = this.cur, s = this.p.sig, xp = x + randn(this.r) * s, yp = y + randn(this.r) * s;
+    const a = Math.min(1, this.target(xp, yp) / this.target(x, y));
+    this.tries++;
+    if (this.r() < a) { this.cur = [clamp(xp, -3.4, 3.4), clamp(yp, -3.4, 3.4)]; this.acc++; }
+    this.samples.push(this.cur.slice());
+  },
+  act(a) {
+    if (a === "one") this.stepOne();
+    else if (a === "h100") for (let i = 0; i < 100; i++) this.stepOne();
+    else if (a === "h500") for (let i = 0; i < 500; i++) this.stepOne();
+    else { this.reset(); return; }
+    this.refresh();
+  },
+  change(k) { if (k === "sep") this.reset(); else this.refresh(); },
+  refresh() {
+    const n = this.samples.length, ar = this.tries ? this.acc / this.tries : 1;
+    const right = this.samples.filter(p => p[0] > 0).length / n;
+    setS("n", n); setS("acc", pct(ar)); setS("right", pct(right));
+    if (cur === this) lineChart($("#lab-chart"), [{ data: this.samples.slice(-240).map(p => p[0]), color: tok("--c1") }], { ymin: -3, ymax: 3, xlabel: `last ${Math.min(240, n)} steps (x₁)` });
+    labExtra(`<p style="margin:8px 0 0">Notice that target(x) is never normalised—yet the chain spends ${pct(right)} of its time in the right peak (true mass ≈ 70%). ${this.p.sig < 0.35 ? "With a tiny step size σ, almost every proposal is accepted, but the chain takes forever to cross the valley between peaks (high autocorrelation, Murphy 2 §12.2.3)." : this.p.sig > 2 ? "With a huge σ, proposals jump far out into zero-density space and get rejected, so the chain freezes in place." : "A balanced σ (~25–50% acceptance) mixes smoothly across both peaks."}</p>`);
+  },
+  draw() {
+    const G = 20, S = 1.75, cs = (6.4 * S) / G;
+    const counts = new Uint16Array(G * G);
+    for (const [x, y] of this.samples) {
+      const i = clamp(((x + 3.2) / 6.4 * G) | 0, 0, G - 1), j = clamp(((y + 3.2) / 6.4 * G) | 0, 0, G - 1);
+      counts[i * G + j]++;
+    }
+    const maxC = Math.max(1, ...counts);
+    for (let i = 0; i < G; i++) for (let j = 0; j < G; j++) {
+      const x = -3.2 + (i + 0.5) * 6.4 / G, y = -3.2 + (j + 0.5) * 6.4 / G;
+      const p = this.target(x, y), hT = p * 3.8, c = counts[i * G + j], hC = (c / maxC) * 3.2;
+      V.box(x * S, 0, -y * S, cs * 0.9, 0.06 + hT, cs * 0.9, p > 0.08 ? mix(C.c2, C.panel, 0.35) : ((i + j) & 1 ? C.panel : C.line), null);
+      if (c > 0) V.box(x * S, hT + 0.08, -y * S, cs * 0.52, Math.max(0.14, hC), cs * 0.52, C.c1, null);
+    }
+    const tail = this.samples.slice(-18);
+    for (let k = 1; k < tail.length; k++) {
+      const [x0, y0] = tail[k - 1], [x1, y1] = tail[k];
+      Ln.seg(x0 * S, this.target(x0, y0) * 3.8 + 0.5, -y0 * S, x1 * S, this.target(x1, y1) * 3.8 + 0.5, -y1 * S, C.ink);
+    }
+    const [cx, cy] = this.cur, ch = this.target(cx, cy) * 3.8 + 0.6;
+    V.box(cx * S, ch, -cy * S, 0.44, 0.44, 0.44, C.c4, null);
+    pin(cx * S, ch + 0.8, -cy * S, "xₜ", "hot");
+  },
+  state() { const n = this.samples.length; return `MCMC lab (σ=${this.p.sig}, separation=${this.p.sep}, ${n} samples): accept rate ${pct(this.acc / Math.max(1, this.tries))}.`; }
+});
