@@ -9,8 +9,9 @@ const GO_ENDPOINTS = [
 ];
 const ZEN_ENDPOINTS = ["https://opencode.ai/zen/v1/chat/completions"];
 
-// Free first. Override with OPENCODE_MODELS="m1,m2,...". Prefix "zen:" for the Zen endpoint.
-const DEFAULT_MODELS = "beam-free,iceman-contributor-free,zen:deepseek-v4-flash-free,zen:big-pickle,deepseek-v4.1-flash";
+// Default: DeepSeek V4.1 Flash on OpenCode Go (cheap and reliable). Override with OPENCODE_MODELS="m1,m2,..." (comma-separated
+// fallbacks; prefix "zen:" for the Zen endpoint).
+const DEFAULT_MODELS = "deepseek-v4.1-flash";
 
 const SYSTEM = `You are the tutor inside "Neuron Voxel Lab", a site that teaches machine learning from first principles through Kevin Murphy's "Probabilistic Machine Learning" (both volumes) and "Dive into Deep Learning". The learner keeps only what he has verified the logic of and rejects unexplained abstraction. Always: start from a concrete picture or tiny numeric example; explain every symbol the first time it appears; say what an equation computes and why it has that shape; connect to what came before. Plain text, short paragraphs, math in plain characters (x², Σ, √, ·, ∂), no LaTeX. Small NumPy snippets in fenced code when useful.`;
 
@@ -21,12 +22,12 @@ function models() {
   return (process.env.OPENCODE_MODELS || DEFAULT_MODELS).split(",").map(s => s.trim()).filter(Boolean);
 }
 
-async function callOnce(endpoint, model, key, messages, maxTokens, ms) {
+async function callOnce(endpoint, model, key, messages, maxTokens, ms, session) {
   const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), ms);
   try {
     const r = await fetch(endpoint, {
       method: "POST", signal: ctl.signal,
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}`, "x-api-key": key },
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}`, "x-opencode-session": session },
       body: JSON.stringify({ model, messages, max_tokens: maxTokens, temperature: 0.4 })
     });
     const raw = await r.text();
@@ -40,12 +41,12 @@ async function callOnce(endpoint, model, key, messages, maxTokens, ms) {
   } finally { clearTimeout(timer); }
 }
 
-async function tryModel(entry, key, messages, maxTokens, ms, log) {
+async function tryModel(entry, key, messages, maxTokens, ms, log, session) {
   const zen = entry.startsWith("zen:"), model = zen ? entry.slice(4) : entry;
   const list = zen ? ZEN_ENDPOINTS : GO_ENDPOINTS;
   const order = workingEndpoint[entry] ? [workingEndpoint[entry], ...list.filter(e => e !== workingEndpoint[entry])] : list;
   for (const ep of order) {
-    const r = await callOnce(ep, model, key, messages, maxTokens, ms);
+    const r = await callOnce(ep, model, key, messages, maxTokens, ms, session);
     log.push({ model: entry, endpoint: ep.replace("https://opencode.ai", ""), status: r.ok ? 200 : r.status, detail: r.ok ? "ok" : r.detail });
     if (r.ok) { workingEndpoint[entry] = ep; return { text: r.text, model }; }
     if (r.status === 401 || r.status === 403) break; // auth problems won't be fixed by another URL shape
@@ -62,7 +63,7 @@ export default async function handler(req, res) {
     if (code && req.query.code !== code) return res.status(401).json({ error: "Add &code=YOUR_ACCESS_CODE" });
     const report = { keySet: !!key, keyPrefix: key ? key.slice(0, 6) + "…" : null, models: models(), checks: [] };
     if (!key) return res.status(200).json(report);
-    for (const entry of models()) await tryModel(entry, key, [{ role: "user", content: "Reply with the single word: ok" }], 5, 15000, report.checks);
+    for (const entry of models()) await tryModel(entry, key, [{ role: "user", content: "Reply with the single word: ok" }], 5, 15000, report.checks, "nvl-diag-" + Date.now());
     report.working = report.checks.filter(c => c.status === 200).map(c => c.model + " via " + c.endpoint);
     return res.status(200).json(report);
   }
@@ -82,10 +83,13 @@ export default async function handler(req, res) {
   }
   if (total > MAX_CHARS) return res.status(413).json({ error: "Question too long. Ask about one part at a time." });
 
+  // OpenCode Go routes by session: one stable id per learner conversation (sent by the page), else a fresh one.
+  const raw = String(req.headers["x-session"] || "");
+  const session = /^[\w-]{8,64}$/.test(raw) ? raw : "nvl-" + Math.random().toString(36).slice(2, 12);
   const log = [], started = Date.now();
   for (const entry of models()) {
     const left = 55000 - (Date.now() - started); if (left < 4000) break;
-    const r = await tryModel(entry, key, [{ role: "system", content: SYSTEM }, ...clean], 1400, Math.min(25000, left - 2000), log);
+    const r = await tryModel(entry, key, [{ role: "system", content: SYSTEM }, ...clean], 1400, Math.min(40000, left - 2000), log, session);
     if (r) return res.status(200).json(r);
   }
   return res.status(502).json({ error: "Every model failed: " + log.map(l => `${l.model} ${l.endpoint} → ${l.status} ${l.detail}`).join(" | "), tried: log });

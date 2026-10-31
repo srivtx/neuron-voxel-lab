@@ -2188,7 +2188,8 @@ const LIVE_SEC = { "M2.3": ["bayes"], "M2.4": ["sigmoid"], "M2.5": ["softmax"], 
 const AIKEY = "nvl-ai-";
 async function askAI(messages) {
   let code = ""; try { code = localStorage.getItem("nvl-access") || ""; } catch (e) { }
-  let r; try { r = await fetch("/api/ask", { method: "POST", headers: { "Content-Type": "application/json", "x-access-code": code }, body: JSON.stringify({ messages }) }); }
+  let sid = ""; try { sid = localStorage.getItem("nvl-session") || ""; if (!sid) { sid = "nvl-" + Math.random().toString(36).slice(2, 14); localStorage.setItem("nvl-session", sid); } } catch (e) { sid = "nvl-" + Math.random().toString(36).slice(2, 14); }
+  let r; try { r = await fetch("/api/ask", { method: "POST", headers: { "Content-Type": "application/json", "x-access-code": code, "x-session": sid }, body: JSON.stringify({ messages }) }); }
   catch (e) { throw { code: "offline", message: "Asking works on the hosted site (Vercel). This copy can't reach the internet." }; }
   let j = null; try { j = await r.json(); } catch (e) { }
   if (r.status === 401) throw { code: "auth", message: "This site needs its access code. Enter it below once; it's saved in this browser." };
@@ -2207,7 +2208,7 @@ function explainButton(host, key, promptFn, label = "Explain this simply (AI)") 
   let cached = null; try { cached = JSON.parse(localStorage.getItem(AIKEY + key) || "null"); } catch (e) { }
   if (cached) show(cached.text, cached.model);
   const run = async () => {
-    btn.disabled = true; out.innerHTML = `<p class="note">Thinking… (free models first)</p>`;
+    btn.disabled = true; out.innerHTML = `<p class="note">Thinking…</p>`;
     try { const j = await askAI([{ role: "user", content: promptFn() }]); show(j.text, j.model); try { localStorage.setItem(AIKEY + key, JSON.stringify({ text: j.text, model: j.model })); } catch (e) { } }
     catch (e) { out.innerHTML = ""; out.append(aiErrorHTML(e, run)); }
     finally { btn.disabled = false; }
@@ -3033,7 +3034,7 @@ function makeAsk(host, ctxFn, chips) {
   go.onclick = ask; clr.onclick = () => { turns = []; th.innerHTML = ""; clr.hidden = true; };
   async function ask() {
     const q = ta.value.trim(); if (!q || busy) return; ta.value = ""; busy = true; go.disabled = true;
-    const qd = document.createElement("div"); qd.className = "q"; qd.textContent = q; const ad = document.createElement("div"); ad.className = "ans wait"; ad.textContent = "Thinking… (free models first)"; th.append(qd, ad);
+    const qd = document.createElement("div"); qd.className = "q"; qd.textContent = q; const ad = document.createElement("div"); ad.className = "ans wait"; ad.textContent = "Thinking…"; th.append(qd, ad);
     const msg = `${turns.length ? "" : RULES + "\n\n"}${ctxFn()}\n\nQuestion: ${q}`;
     try {
       const j = await askAI([...turns, { role: "user", content: msg }]);

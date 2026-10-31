@@ -455,7 +455,7 @@ function makeAsk(host, ctxFn, chips) {
   go.onclick = ask; clr.onclick = () => { turns = []; th.innerHTML = ""; clr.hidden = true; };
   async function ask() {
     const q = ta.value.trim(); if (!q || busy) return; ta.value = ""; busy = true; go.disabled = true;
-    const qd = document.createElement("div"); qd.className = "q"; qd.textContent = q; const ad = document.createElement("div"); ad.className = "ans wait"; ad.textContent = "Thinking… (free models first)"; th.append(qd, ad);
+    const qd = document.createElement("div"); qd.className = "q"; qd.textContent = q; const ad = document.createElement("div"); ad.className = "ans wait"; ad.textContent = "Thinking…"; th.append(qd, ad);
     const msg = `${turns.length ? "" : RULES + "\n\n"}${ctxFn()}\n\nQuestion: ${q}`;
     try {
       const j = await askAI([...turns, { role: "user", content: msg }]);
