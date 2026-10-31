@@ -172,6 +172,7 @@ function goConcept(id, fly = true) {
   v.querySelectorAll("[data-lab]").forEach(b => b.onclick = () => { const home = labHome(b.dataset.lab); goChapter(home); startSim(b.dataset.lab); });
   bindLive(v);
   explainButton($("#c-ai"), "c-" + id, () => `${EASY_RULES}\n\nConcept: "${c.name}". The site's short version: ${c.easy} Equation: ${c.eq} (${c.words}). It builds on: ${c.pre.map(p => CI[p].name).join(", ") || "nothing"}. It leads to: ${c.next.map(p => CI[p].name).join(", ") || "nothing"}. Book sections: ${c.refs.join(", ")} (M = Murphy PML 1, D = Dive into Deep Learning, A = Murphy PML 2).`);
+  afterConcept(c, v, fly);
   makeAsk($("#c-ask"), () => `Concept "${c.name}" (floor ${c.floor}, ${FLOORS[c.floor]}). Short version: ${c.easy} Equation: ${c.eq}. Prerequisites: ${c.pre.map(p => CI[p].name).join(", ")}. Book sections: ${c.refs.join(", ")}.`, [`Why does ${c.name} exist? What problem forced it?`, "Walk me through the equation with small numbers", "How does this connect to what I already know?"]);
   $("#panel").scrollTop = 0;
 }

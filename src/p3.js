@@ -510,7 +510,7 @@ function boot() {
   readTheme();
   $("#crumb").onclick = () => openLibrary();
   $$(".modesw button").forEach(b => b.onclick = () => b.dataset.m === "concept" ? goConcept(selC) : goChapter(curChap || "M1"));
-  $("#sym-btn").onclick = openSymbols;
+  $("#sym-btn").onclick = openSymbols; $("#proj-btn").onclick = openProjects; updateProgressBadge();
   $("#prev-ch").onclick = () => stepChapter(-1); $("#next-ch").onclick = () => stepChapter(1);
   ORDER.forEach(id => { ST[id].init && ST[id].init(); });
   syncers.forEach(f => f());

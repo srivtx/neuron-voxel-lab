@@ -9,7 +9,8 @@ OUT=../index.html
   echo '<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>'
   echo '<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>'
   echo '<script>'
-  cat p2.js p4.js p5easy.js p5.js p6a.js p6b.js
+  cat p2.js p4.js p5easy.js p5.js p6a.js p6b.js p7a.js p7b.js
+  printf '\nconst PRACTICE = '; cat practice.json; printf ';\n'
   printf '\nTOC = '; cat toc.json; printf ';\n'
   cat p3.js
   echo '</script></body></html>'

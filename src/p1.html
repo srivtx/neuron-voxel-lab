@@ -52,7 +52,8 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 .tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--bg);font:12px var(--f-mono);padding:5px 8px;border-radius:4px;white-space:pre;transform:translate(12px,-120%);z-index:4}
 #pins{position:absolute;inset:0;pointer-events:none;overflow:hidden}
 .pin{position:absolute;transform:translate(-50%,calc(-100% - 10px));background:var(--ink);color:var(--bg);font:600 11.5px var(--f-body);padding:3px 7px;border-radius:5px;white-space:nowrap}
-.pin::after{content:"";position:absolute;left:50%;top:100%;width:2px;height:10px;background:inherit;transform:translateX(-50%)}
+.pin::after{content:"";position:absolute;left:50%;top:100%;width:2px;height:var(--stem,10px);background:inherit;transform:translateX(-50%);opacity:.7}
+.pin.left{transform:translate(-100%,-50%)}
 .pin.hot{background:var(--c1);color:#fff}.pin.soft{background:var(--c4);color:#1b1b1b}.pin.cool{background:var(--c2);color:#fff}.pin.ok{background:var(--c3);color:#fff}
 .pin.flat{transform:translate(-50%,-50%);font:600 11px var(--f-mono);background:color-mix(in srgb,var(--card) 88%,transparent);color:var(--ink);border:1px solid var(--line)}.pin.flat::after{display:none}
 .panel{min-width:0;overflow-y:auto;border-left:1px solid var(--line);background:var(--panel);padding-block:18px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
@@ -263,6 +264,26 @@ input[type=range]:focus-visible{outline:2px solid var(--c4);outline-offset:2px}
   .panel{overflow:visible;border-left:0;border-top:1px solid var(--line)}
   .six{grid-template-columns:1fr}
 }
+/* progression, practice, projects */
+.badge{font:600 10.5px var(--f-mono);background:var(--c3);color:#0d1f15;border-radius:6px;padding:1px 5px;margin-left:4px}
+.progline{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.pill.warn{background:color-mix(in srgb,var(--c4) 18%,var(--card));border-color:var(--c4);color:var(--ink)}
+.linkbtn{font:inherit;background:none;border:0;border-bottom:1px dashed var(--c1);color:var(--ink);padding:0;cursor:pointer}
+.chip.on{border-color:var(--c4);border-style:solid}
+.qz{font-size:14.5px;font-weight:700;margin:0 0 10px;line-height:1.45}
+.opts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.opt{text-align:left;font:14px var(--f-body);color:var(--ink);background:var(--panel);border:1.5px solid var(--line);border-radius:8px;padding:9px 11px;cursor:pointer}
+.opt:hover{border-color:var(--c4)}.opt.right{border-color:var(--c3);background:color-mix(in srgb,var(--c3) 16%,var(--card))}.opt.wrong{border-color:var(--c1);background:color-mix(in srgb,var(--c1) 12%,var(--card))}
+.practice{display:flex;flex-direction:column;gap:10px;padding:14px;border:1.5px solid color-mix(in srgb,var(--c4) 50%,var(--line));border-radius:12px;background:color-mix(in srgb,var(--c4) 5%,var(--panel))}
+.practice-head{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;flex-wrap:wrap}
+.kind{font:600 10.5px var(--f-mono);padding:1px 6px;border-radius:5px;margin-right:6px;border:1px solid var(--line)}.k-code{color:var(--c2);border-color:var(--c2)}.k-derive{color:var(--c4);border-color:var(--c4)}.k-think{color:var(--c3);border-color:var(--c3)}
+.ex.isdone>summary .st{text-decoration:line-through;text-decoration-color:var(--c3);color:var(--muted)}
+details.reveal{border:1px dashed var(--line);border-radius:8px;padding:6px 10px;background:var(--panel)}details.reveal>summary{cursor:pointer;font:700 12.5px var(--f-body);color:var(--c4)}details.reveal[open]>summary{margin-bottom:6px}details.reveal p{margin:0}
+.codewrap{min-width:0}.codewrap .code-head{margin-bottom:-2px}.btn.small{padding:3px 8px;font-size:11.5px}
+pre.out{font:11.5px/1.5 var(--f-mono);background:var(--bg);color:var(--c3);border:1px solid var(--line);border-radius:6px;padding:8px 10px;overflow-x:auto;margin:6px 0 0;white-space:pre}
+.projcard{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}.projcard h4{font:800 17px var(--f-display);margin:0}
+.milestones{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:14px}.milestones li{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--card)}.milestones li.isdone{border-color:var(--c3)}.milestones h4{font:800 15px var(--f-display);margin:0}
+@media (max-width:640px){.opts{grid-template-columns:1fr}}
 @media (max-width:640px){.booktabs{grid-template-columns:1fr}.links{grid-template-columns:1fr}.booknav{justify-content:flex-start}}
 @media (max-width:480px){.tabs button{padding:5px 7px;font-size:12px}.stats b{font-size:15px}h2{font-size:23px}.pairs{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
@@ -275,10 +296,10 @@ input[type=range]:focus-visible{outline:2px solid var(--c4);outline-offset:2px}
     <div><h1>Neuron Voxel Lab</h1><p>Three books, every chapter, built from the ground floor</p></div>
   </div>
   <nav class="booknav" aria-label="Navigate">
-    <span class="modesw" role="group" aria-label="View"><button type="button" data-m="course" aria-pressed="true">Course</button><button type="button" data-m="concept" aria-pressed="false">Concept map</button></span>
+    <span class="modesw" role="group" aria-label="View"><button type="button" data-m="course" aria-pressed="true">Course</button><button type="button" data-m="concept" aria-pressed="false">Skill tree <b id="prog-badge" class="badge">0/131</b></button></span>
     <span class="chnav"><button class="iconbtn" type="button" id="prev-ch" aria-label="Previous chapter">‹</button><button class="crumb" type="button" id="crumb" aria-label="Open library"></button><button class="iconbtn" type="button" id="next-ch" aria-label="Next chapter">›</button></span>
   </nav>
-  <div class="hdr-tools"><button class="nb-btn" type="button" id="sym-btn">Σ Symbols</button><button class="nb-btn" type="button" id="why-btn">Why so many equations?</button><a class="nb-btn go" id="colab-link" href="https://colab.research.google.com/drive/1yXAtKDZzJz9Gk9mFBzmEnaV02zr4tthC" target="_blank" rel="noopener">Colab notebook ↗</a></div>
+  <div class="hdr-tools"><button class="nb-btn" type="button" id="proj-btn">Projects</button><button class="nb-btn" type="button" id="sym-btn">Σ Symbols</button><button class="nb-btn" type="button" id="why-btn">Why so many equations?</button><a class="nb-btn go" id="colab-link" href="https://colab.research.google.com/drive/1yXAtKDZzJz9Gk9mFBzmEnaV02zr4tthC" target="_blank" rel="noopener">Colab notebook ↗</a></div>
 </header>
 
 <main class="lab">

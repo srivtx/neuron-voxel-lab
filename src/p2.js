@@ -67,7 +67,18 @@ function placePins() {
     pv.set(p.x, p.y, p.z).project(camera);
     if (pv.z > 1) { d.hidden = true; return; }
     d.hidden = false; d.className = "pin " + p.cls; if (d.textContent !== p.text) d.textContent = p.text;
-    d.style.left = ((pv.x + 1) / 2 * r.width) + "px"; d.style.top = ((1 - pv.y) / 2 * r.height) + "px";
+    d.style.left = ((pv.x + 1) / 2 * r.width) + "px"; d.style.top = ((1 - pv.y) / 2 * r.height) + "px"; d.style.transform = ""; d.style.removeProperty("--stem");
+  });
+  /* keep labels from covering each other (floor labels included): push later ones upward */
+  const sr = pinsEl.getBoundingClientRect(), placed = [];
+  pinPool.forEach((d, i) => { const p = PINS[i]; if (!p || d.hidden || !p.cls.includes("flat")) return; const b = d.getBoundingClientRect(); placed.push({ l: b.left - sr.left, r: b.right - sr.left, t: b.top - sr.top, b: b.bottom - sr.top }); });
+  pinPool.forEach((d, i) => {
+    const p = PINS[i]; if (!p || d.hidden || p.cls.includes("flat")) return;
+    const x = parseFloat(d.style.left), y = parseFloat(d.style.top), w = d.offsetWidth, h = d.offsetHeight; let top = y - h - 10;
+    const hits = t => placed.find(q => x - w / 2 - 3 < q.r && x + w / 2 + 3 > q.l && t - 2 < q.b && t + h + 2 > q.t);
+    for (let k = 0; k < 14; k++) { const q = hits(top); if (!q) break; top = q.t - h - 4; }
+    const dy = top - (y - h - 10); if (dy) { d.style.transform = `translate(-50%, ${top - y}px)`; d.style.setProperty("--stem", (10 - dy) + "px"); }
+    placed.push({ l: x - w / 2, r: x + w / 2, t: top, b: top + h });
   });
 }
 function resize() { const r = canvas.parentElement.getBoundingClientRect(); renderer.setSize(r.width, r.height, false); camera.aspect = r.width / Math.max(1, r.height); camera.updateProjectionMatrix(); }

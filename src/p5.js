@@ -136,6 +136,7 @@ function renderChapter(b, n, ch) {
     const s = chapAskSection ? rows.find(r => r[0] === chapAskSection) : null, subs = s ? rows.filter(r => r[0].startsWith(s[0] + ".")) : [], e = s ? SEC[b + s[0]] : null;
     return `He is reading ${BOOKN[b]}, chapter ${n} "${ch[1]}". ${s ? `Section §${s[0]} "${s[1]}" (p. ${s[2]}). Its subsections: ${subs.map(x => x[0] + " " + x[1]).join("; ") || "none"}.${e ? " The site's explanation: " + e.t + (e.eq ? " Key equation: " + e.eq[0] + " — " + e.eq[1] : "") : ""}` : `Sections: ${secs.map(x => x[0] + " " + x[1]).join("; ")}.`}\nCurrent lab state: ${cur && cur.state ? cur.state() : "none"}`;
   }, ["What is this chapter really trying to do?", "Which sections are essential on a first pass?", "Give me a tiny NumPy experiment for the main idea"]);
+  afterChapter(b, n, v);
 }
 let chapAskSection = null;
 function secCard(b, s, rows) {
