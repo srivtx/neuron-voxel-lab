@@ -9,7 +9,10 @@ OUT=../index.html
   echo '<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>'
   echo '<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>'
   echo '<script>'
-  cat p2.js p4.js p5easy.js p5.js p6a.js p6b.js p7a.js p7b.js p8.js p9.js
+  cat p2.js p4.js p5easy.js p5.js p6a.js p6b.js p7a.js p7b.js p8.js
+  # one file per chapter: src/ch/M15.js, D3.js, A21.js … (each Object.assign()s into CHI / SEC / EASY)
+  for f in $(ls ch/*.js 2>/dev/null | sort -V); do printf '\n'; cat "$f"; done
+  printf '\n'; cat p9.js
   printf '\nconst PRACTICE = '; cat practice.json; printf ';\n'
   printf '\nTOC = '; cat toc.json; printf ';\n'
   cat p3.js
