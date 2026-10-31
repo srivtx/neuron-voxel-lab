@@ -54,10 +54,10 @@ Then go deeper           Deep learning in practice (D2L, PyTorch) ─ Probabilis
 |---|---|---|---|
 | **Neural networks by building** (start here for deep learning) | Anyone who can write a Python loop | 30 | A neural net, backprop, a CNN and an autoencoder, each written from scratch |
 | **Statistics and probability for ML** | Anyone who wants to know when a result is real | 29 | An A/B test done six ways, a calibrated medical classifier, and a clear grasp of p-values vs posteriors |
-| **Classical ML toolkit** | Those who know what a gradient is | 23 | Regression, classification, regularisation and clustering, each built once |
+| **Classical ML toolkit** | Those who know what a gradient is | 29 | Regression, classification, SVMs, trees, regularisation and clustering, each built once |
 | **The maths underneath** | Anyone whose eyes glaze at equations | 17 | Σ, slopes, gradients, matrices, SVD and optimisation, each tied to a picture |
-| **Deep learning with D2L** | Those who have built a net from scratch | 15 | Modern CNNs, RNNs and transformers in PyTorch |
-| **Probabilistic and generative** | Those who have done the stats and neural-net paths | 16 | Variational inference, MCMC, Bayesian deep learning, VAEs, flows, diffusion and GANs |
+| **Deep learning with D2L** | Those who have built a net from scratch | 18 | Modern CNNs, RNNs, attention and transformers in PyTorch |
+| **Probabilistic and generative** | Those who have done the stats and neural-net paths | 22 | Kalman filters, VI, MCMC, GPs, Bayesian DL, VAEs, flows, diffusion, RL and causality |
 
 ## Features
 
@@ -67,20 +67,20 @@ Then go deeper           Deep learning in practice (D2L, PyTorch) ─ Probabilis
 <td width="50%"><img src="docs/screens/skill-tree.png" alt="The skill tree"></td>
 </tr>
 <tr>
-<td><b>Live equations</b>: 21 equations with sliders. Every term is computed and shown, and each coloured symbol says what it means when you tap it.</td>
-<td><b>Skill tree</b>: 131 concepts on 11 floors, from Σ notation to diffusion and RL. Answer a check question to mark a concept done and unlock the ones that build on it.</td>
+<td><b>Live equations</b>: 45 interactive equations with sliders (mapped across 106 sections). Every term is computed and shown, and each coloured symbol says what it means when you tap it.</td>
+<td><b>Skill tree</b>: 131 concepts on 11 floors, from Σ notation to diffusion, RL and causal inference. Every concept has a built-in check question to mark it done and unlock the ones that build on it.</td>
 </tr>
 <tr>
 <td><img src="docs/screens/lab.png" alt="Ridge vs lasso lab"></td>
 <td><img src="docs/screens/practice.png" alt="Exercises with hints and worked answers"></td>
 </tr>
 <tr>
-<td><b>Voxel labs</b>: 10 build-a-network stations and 15 chapter labs (three.js). Examples: Bayes' rule on 2,000 people, the CLT, bootstrap, ROC curves, SVD, LDA vs QDA, ridge vs lasso geometry, k-means, convolution and a face autoencoder.</td>
-<td><b>Practice</b>: 55 exercises for Murphy 1 ch. 1–14, in three kinds: <i>think</i>, <i>derive by hand</i> and <i>code</i>. Each has a hint, a hidden worked answer and a solution. Every solution is executed at build time, and the real output is shown.</td>
+<td><b>Voxel labs</b>: 10 build-a-network stations and 23 chapter labs (three.js). Examples: Bayes' rule on 2,000 people, the CLT, bootstrap, ROC curves, SVD, LDA vs QDA, ridge vs lasso, k-means, multi-head attention, kernel SVM, decision trees, Kalman filtering, HMC/MCMC, diffusion (DDPM), actor-critic RL and causal do-calculus.</td>
+<td><b>Practice</b>: 74 exercises across Murphy 1 (ch. 1–23), D2L and Murphy 2, in three kinds: <i>think</i>, <i>derive by hand</i> and <i>code</i>. Each has a hint, a hidden worked answer and a solution. Every solution is executed at build time, and the real output is shown.</td>
 </tr>
 </table>
 
-- **Easy layer first.** Every explained section opens with a one-line plain-English version, then the precise one.
+- **Easy layer first.** Every explained section opens with a one-line plain-English version, then the precise one, plus worked numerical examples, NumPy/PyTorch snippets and subsection notes.
 - **7 build projects** with milestones, questions, starter code and full solutions. Every number in an answer comes from running the solution:
 
   | # | Project | Track | What you build |
@@ -93,7 +93,7 @@ Then go deeper           Deep learning in practice (D2L, PyTorch) ─ Probabilis
   | 6 | Find groups without labels | ML | k-means and a full-covariance GMM fitted by EM; rediscover the iris species (purity 0.97); choose K with BIC |
   | 7 | A convolutional network from scratch | NN | im2col convolution, max-pool backward, a gradient check, CNN vs a same-size MLP, and a one-pixel-shift robustness test |
 
-- **Colab notebooks**, one per chapter plus one per project (21 in all). Solutions are hidden in collapsed cells, and they run on any Colab runtime (an L4 GPU is not required for the practice sets).
+- **Colab notebooks**, one per practiced chapter plus one per project (40 in all). Solutions are hidden in collapsed cells, and they run on any Colab runtime (an L4 GPU is not required for the practice sets).
 - **Symbols decoder**: the 54 symbols the books are written in, each with its name, meaning and an example.
 - **"Why so many equations?"**: six equations that carry most of deep learning, each linked to the station where you can see it.
 - **Custom-designed controls**: no native dropdowns or default form widgets anywhere; sliders, toggles, segmented buttons and pickers are all styled to the theme. Dark (chalk on slate) and light (graph paper) themes follow your OS.
@@ -270,21 +270,23 @@ The key is the book letter (`M` = Murphy 1, `D` = D2L, `A` = Murphy 2) plus the 
 │   ├── p2.js                # voxel engine, label layout, tiny NN library, stations 1–10
 │   ├── p4.js                # lab framework + Murphy 1 ch. 1–8 labs
 │   ├── p5easy.js, p5.js     # easy layer, chapter intros, section text, chapter pages
+│   ├── ch/*.js              # all 80 chapter files (M15–M23, D1–D21, A1–A36) with worked examples & code
 │   ├── p6a.js               # concepts (131), floors, symbols (54)
-│   ├── p6b.js               # live equations, AI client, library, concept tower
-│   ├── p7a.js               # concept check questions
-│   ├── p7b.js               # skill-tree progression, practice + projects UI, ch. 9/11/21 labs
-│   ├── p8.js                # Murphy 1 ch. 9–14 explanations + live equations
+│   ├── p6b.js               # live equations UI, AI client with streaming & normalizer, library, concept tower
+│   ├── p7a.js               # concept check questions (all 131 concepts across floors 0–10)
+│   ├── p7b.js               # skill-tree progression, practice + projects UI, ch. 9–21 & Murphy 2 3D labs
+│   ├── p8.js                # Murphy 1 ch. 9–14 explanations + 45 live equations (106 section mappings)
 │   ├── p9.js                # learning paths, path map, next-step pill
 │   ├── p3.js                # station content, ask box, routing, app shell
 │   ├── toc.json             # every section of all three books
 │   └── practice.json        # generated by content/build.py
 ├── content/
-│   ├── exercises.py         # 55 exercises
+│   ├── exercises.py         # 55 exercises for Murphy 1 ch. 1–14
+│   ├── exercises_more.py    # 19 exercises for Murphy 1 ch. 15–23, D2L and Murphy 2
 │   ├── projects.py          # projects 1–3
 │   ├── projects_more.py     # projects 4–7 (stats, decisions, clustering, CNN)
 │   └── build.py             # runs solutions → practice.json + notebooks
-├── notebooks/               # Colab notebooks (generated + the autoencoder notebook)
+├── notebooks/               # 40 Colab notebooks (generated + the autoencoder notebook)
 └── docs/screens/            # README screenshots
 ```
 
@@ -308,11 +310,11 @@ The key is the book letter (`M` = Murphy 1, `D` = D2L, `A` = Murphy 2) plus the 
 
 ## Roadmap
 
-- [ ] Section-by-section explanations for Murphy 1 ch. 15–23
-- [ ] Section-by-section explanations for D2L and Murphy 2 (today they have chapter summaries, stations and AI explain)
+- [x] Section-by-section explanations for Murphy 1 ch. 15–23
+- [x] Section-by-section explanations for D2L and Murphy 2 (all 80 chapters & 490 non-exercise sections explained with easy analogies, worked examples, code snippets and live equations)
 - [x] Learning paths, with stats, decision and clustering projects and a CNN from scratch
-- [ ] Exercises for later chapters, and more projects (a tiny transformer, a VAE, an RL agent)
-- [ ] Check questions for floors 5–10 (AI-generated quizzes for now)
+- [x] Exercises for later chapters (Murphy 1 ch. 15–23, D2L and Murphy 2), and 8 new 3D labs (attention, SVM, trees, Kalman, MCMC, diffusion, RL, causality)
+- [x] Check questions for all 131 concepts across floors 0–10
 
 ## Contributing
 
