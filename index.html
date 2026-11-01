@@ -1953,8 +1953,10 @@ function renderChapter(b, n, ch) {
     ${sims.length ? `<div class="block"><h3>Labs for this chapter</h3><div class="btns" style="margin:0">${sims.map(s => `<button type="button" class="btn" data-sim="${s}" aria-pressed="false">${esc(ST[s].isLab ? ST[s].tab : "Station " + s.slice(1) + ": " + ST[s].tab)}</button>`).join("")}</div></div>` : ""}
     <div class="block" id="lab" hidden></div>
     ${secs.length ? `<div><div style="display:flex;justify-content:space-between;align-items:center;margin:6px 0 8px"><h3 style="font:700 18px var(--f-display);margin:0">Sections</h3><button type="button" class="btn small" data-expand-all>Expand all</button></div><div class="secs">${secs.map(s => secCard(b, s, rows)).join("")}</div></div>` : ""}
+    ${quizHTML(key)}
     <div class="block ask" id="chap-ask"></div>
     <div class="btns" style="justify-content:space-between"><button class="btn" type="button" data-step="-1">← Previous chapter</button><button class="btn primary" type="button" data-step="1">Next chapter →</button></div>`;
+  bindQuiz(v);
   const expBtn = v.querySelector("[data-expand-all]");
   if (expBtn) expBtn.onclick = () => {
     const details = [...v.querySelectorAll("details.sec:not(.ex)")];
@@ -1983,6 +1985,25 @@ function renderChapter(b, n, ch) {
   afterChapter(b, n, v);
 }
 let chapAskSection = null;
+/* self-check quizzes: QUIZ[key] = [[question, [options], correctIndex, explanation], ...] (files in src/quiz/) */
+const QUIZ = {};
+function quizHTML(key) {
+  const q = QUIZ[key]; if (!q || !q.length) return "";
+  return `<div class="block quiz" data-quiz="${key}"><h3>Self-check (${q.length} questions)</h3><p class="note" style="margin:0 0 6px">Answer from memory first; tap an option to see why it is right or wrong. Your score is saved in this browser.</p>${q.map((x, i) => `<div class="qz" data-i="${i}" style="margin:10px 0"><p style="margin:0 0 4px"><b>${i + 1}.</b> ${esc(x[0])}</p><div class="btns" style="margin:0;flex-direction:column;align-items:stretch">${x[1].map((o, j) => `<button type="button" class="btn small" data-j="${j}" style="text-align:left">${esc(o)}</button>`).join("")}</div><p class="note qz-fb" style="margin:4px 0 0;color:var(--ink)" hidden></p></div>`).join("")}<p class="note qz-score" style="margin:8px 0 0"></p></div>`;
+}
+function bindQuiz(root) {
+  const box = root.querySelector(".quiz"); if (!box) return;
+  const key = box.dataset.quiz, q = QUIZ[key], sk = "nvl-quiz-" + key; let done = {};
+  try { done = JSON.parse(localStorage.getItem(sk) || "{}"); } catch (e) { }
+  const score = () => { const n = Object.keys(done).length, r = Object.values(done).filter(Boolean).length; box.querySelector(".qz-score").textContent = n ? `Score: ${r} / ${q.length}${n === q.length ? (r === q.length ? " · perfect, move on" : " · revisit the sections you missed") : ""}` : ""; };
+  const mark = (el, j, auto) => {
+    const i = +el.dataset.i, x = q[i], ok = j === x[2]; if (!auto) { done[i] = ok; try { localStorage.setItem(sk, JSON.stringify(done)); } catch (e) { } }
+    el.querySelectorAll("button").forEach((b, k) => { b.disabled = true; b.style.outline = k === x[2] ? "2px solid var(--c3)" : k === j ? "2px solid var(--c4)" : ""; });
+    const fb = el.querySelector(".qz-fb"); fb.hidden = false; fb.textContent = (ok ? "Correct. " : "Not quite. ") + x[3]; score();
+  };
+  box.querySelectorAll(".qz").forEach(el => { el.querySelectorAll("button").forEach(b => b.onclick = () => mark(el, +b.dataset.j)); });
+  score();
+}
 function secCard(b, s, rows) {
   const e = SEC[b + s[0]], subs = rows.filter(r => r[0].startsWith(s[0] + ".") && r[0].split(".").length === 3), star = /\*\s*$/.test(s[1]), title = s[1].replace(/\s*\*\s*$/, "");
   const ex = /^Exercises|^Summary/.test(title), hasLive = (LIVE_SEC[b + s[0]] || []).length > 0;
@@ -5212,6 +5233,133 @@ Object.assign(EASY, {
   "M23.4": "In each round, every person updates their summary by averaging notes from their direct friends; after three rounds you know about friends-of-friends-of-friends.",
   "M23.5": "Even if only five people in a network are labelled, passing messages along friendships spreads those labels to the neighbours who look and connect like them.",
   "M23.6": "Turn a whole molecule into a single summary vector by passing messages along its chemical bonds and adding up the atom summaries."
+});
+
+/* Self-check quizzes: Murphy 1 ch. 1–8. Format: [question, [options], correctIndex, explanation] */
+Object.assign(QUIZ, {
+  M1: [
+    ["In supervised learning, what is the key difference between classification and regression?", ["Classification uses more data", "Classification predicts a discrete label, regression a real-valued number", "Regression needs a neural network", "Classification has no loss function"], 1, "Both learn f(x) from labelled pairs; only the output type differs (class label vs continuous value)."],
+    ["A model has 0% training error but 40% test error. What is this called?", ["Underfitting", "Overfitting", "Regularisation", "Covariate shift"], 1, "It memorised the training set instead of the pattern, so it does not generalise."],
+    ["Why do we keep a held-out validation/test set?", ["To make training faster", "To estimate error on unseen data and choose hyperparameters honestly", "To increase the training set", "To avoid using a loss"], 1, "Training error is optimistic; held-out data estimates generalisation."]
+  ],
+  M2: [
+    ["For a valid probability density p(x), which statement is true?", ["p(x) ≤ 1 everywhere", "p(x) ≥ 0 and it integrates to 1", "p(x) is always symmetric", "p(x) sums to 0"], 1, "Densities can exceed 1 (e.g. a narrow Gaussian), but are non-negative and integrate to 1."],
+    ["What does Bayes' rule compute?", ["p(x,y) from p(x)", "p(y|x) from p(x|y), p(y) and p(x)", "The mean of p(x)", "The variance of x"], 1, "p(y|x) = p(x|y)p(y)/p(x): invert a conditional using a prior."],
+    ["If X ~ N(μ, σ²), roughly what fraction of mass lies within μ ± 2σ?", ["50%", "68%", "95%", "99.99%"], 2, "The 68–95–99.7 rule: about 95% within two standard deviations."]
+  ],
+  M3: [
+    ["Two variables are independent. What does that imply about their covariance?", ["It is 1", "It is 0", "It is negative", "It is undefined"], 1, "Independence ⇒ zero covariance, but zero covariance does NOT imply independence."],
+    ["What does the covariance matrix of a multivariate Gaussian control?", ["Only its mean", "The shape and orientation of its elliptical contours", "Its normalising constant only", "Nothing"], 1, "Eigenvectors give the ellipse axes, eigenvalues their lengths."],
+    ["Conditioning a joint Gaussian on one block of variables gives…", ["A uniform distribution", "Another Gaussian", "A Student-t", "A Bernoulli"], 1, "Gaussians are closed under marginalising and conditioning."]
+  ],
+  M4: [
+    ["Maximum likelihood estimation picks parameters that…", ["Minimise the prior", "Maximise the probability of the observed data", "Minimise the number of parameters", "Maximise the entropy"], 1, "θ̂ = argmax p(D|θ), equivalently minimise the negative log-likelihood."],
+    ["Adding a Gaussian prior on weights and doing MAP estimation is equivalent to…", ["Dropout", "L2 regularisation (ridge)", "Early stopping only", "Removing the bias"], 1, "−log N(w|0,τ²) is proportional to ‖w‖², i.e. weight decay."],
+    ["What does a 95% confidence interval promise?", ["The parameter lies in this interval with 95% probability", "95% of intervals built this way (over repeated samples) contain the true value", "95% of data is inside it", "The estimate is unbiased"], 1, "It is a frequentist statement about the procedure, not about this one interval."]
+  ],
+  M5: [
+    ["A Bayes-optimal classifier under 0-1 loss chooses…", ["The class with highest prior", "The class with highest posterior p(y|x)", "A random class", "The class with the lowest variance"], 1, "Minimising expected 0-1 loss means picking the MAP class."],
+    ["If a false negative costs 10× a false positive, the decision threshold on p(y=1|x) should…", ["Move up", "Stay at 0.5", "Move down", "Be 1"], 2, "Predict positive when p > 1/(1+10) ≈ 0.09: be more willing to flag positives."],
+    ["Which is a proper scoring rule for probabilistic predictions?", ["Accuracy", "Log loss (cross-entropy)", "Number of correct labels", "Top-1 rate"], 1, "Log loss rewards honest, calibrated probabilities; accuracy ignores confidence."]
+  ],
+  M6: [
+    ["Entropy H(p) measures…", ["The mean of p", "The average surprise/uncertainty of p", "The distance between p and q", "The variance of p"], 1, "H(p) = −Σ p log p; maximal for uniform distributions."],
+    ["Is KL divergence KL(p‖q) symmetric?", ["Yes always", "No, KL(p‖q) ≠ KL(q‖p) in general", "Only for Gaussians", "Only for discrete"], 1, "It is non-negative, zero iff p=q, but not symmetric, so it is not a metric."],
+    ["Minimising cross-entropy between data and a model is the same as…", ["Maximising the KL divergence", "Maximum likelihood", "Minimising accuracy", "Maximising entropy of data"], 1, "CE = H(p_data) + KL(p_data‖q); the first term is constant in the model."]
+  ],
+  M7: [
+    ["Matrix A is 3×4 and B is 4×2. What is the shape of AB?", ["4×4", "3×2", "2×3", "Not defined"], 1, "Inner dimensions match (4); the result is rows(A)×cols(B)."],
+    ["What do the eigenvectors of a symmetric matrix give?", ["Orthogonal directions that A only stretches", "The inverse", "The rank", "The trace"], 0, "Av = λv: along these directions A scales by λ; for symmetric A they are orthogonal."],
+    ["The SVD A = UΣVᵀ: the singular values tell you…", ["The sign of A", "How much A stretches along each orthogonal direction (and its effective rank)", "The determinant only", "Nothing about rank"], 1, "Truncating small singular values gives the best low-rank approximation (Eckart–Young)."]
+  ],
+  M8: [
+    ["Gradient descent update is θ ← θ − η∇L(θ). What happens if η is too large?", ["It converges faster always", "It can overshoot and diverge", "Nothing", "It stops"], 1, "Steps can jump across the valley, making the loss grow."],
+    ["Why use mini-batch SGD instead of full-batch gradient descent?", ["It is exact", "Cheaper noisy gradient estimates that scale to big data and can escape sharp minima", "It needs no learning rate", "It guarantees the global minimum"], 1, "Each step costs O(batch), and the noise helps exploration."],
+    ["For a convex function, any local minimum is…", ["A saddle point", "Also a global minimum", "Always unique", "Impossible"], 1, "Convexity means no spurious local minima (though minima may be flat sets)."]
+  ]
+});
+
+/* Self-check quizzes: Murphy 1 ch. 9–15 */
+Object.assign(QUIZ, {
+  M9: [
+    ["LDA assumes each class is modelled as…", ["A Gaussian with a shared covariance matrix", "A uniform ball", "A tree", "A Poisson"], 0, "Shared covariance makes the log-posterior ratio linear in x (a linear boundary)."],
+    ["What happens if each class gets its own covariance (QDA)?", ["Boundaries stay linear", "Boundaries become quadratic", "The model becomes non-probabilistic", "Nothing"], 1, "The quadratic terms no longer cancel."],
+    ["Naive Bayes assumes features are…", ["Gaussian", "Conditionally independent given the class", "Identical", "Uncorrelated with the label"], 1, "p(x|y)=Π p(xⱼ|y): few parameters, strong assumption."]
+  ],
+  M10: [
+    ["Logistic regression models p(y=1|x) as…", ["wᵀx", "σ(wᵀx), the sigmoid of a linear score", "A tree vote", "wᵀx clipped to [0,1]"], 1, "The sigmoid maps any real score to a probability."],
+    ["The gradient of the logistic NLL w.r.t. w is…", ["Σ (σ(wᵀxᵢ) − yᵢ) xᵢ", "Σ yᵢ xᵢ", "Σ xᵢ", "Always 0"], 0, "Prediction error times input; it has the same form as linear regression's gradient."],
+    ["On perfectly separable data, unregularised logistic regression…", ["Converges to a finite w", "Has weights diverging to infinity", "Gives p=0.5", "Fails to run"], 1, "Scaling w up always improves the likelihood; regularisation fixes it."]
+  ],
+  M11: [
+    ["The ordinary least squares solution is…", ["w = (XᵀX)⁻¹Xᵀy", "w = Xy", "w = yXᵀ", "w = X⁻¹ only if X is non-square"], 0, "It solves the normal equations XᵀXw = Xᵀy."],
+    ["Ridge regression adds λ‖w‖² which…", ["Increases variance", "Shrinks weights, trading a little bias for less variance", "Makes the problem non-convex", "Removes the intercept"], 1, "It also makes XᵀX+λI always invertible."],
+    ["Lasso (L1) differs from ridge in that it…", ["Never shrinks", "Drives some weights exactly to zero (sparsity)", "Has a closed form", "Is smooth"], 1, "The L1 ball has corners, so optima often land on axes."]
+  ],
+  M12: [
+    ["A GLM combines…", ["An exponential-family output distribution, a linear predictor and a link function", "Only trees", "A kernel and a prior", "Two neural nets"], 0, "Linear, logistic and Poisson regression are all special cases."],
+    ["Poisson regression is suited to…", ["Count data", "Binary labels", "Negative reals", "Images"], 0, "The canonical link is log: the rate is exp(wᵀx)."],
+    ["Why is the canonical link convenient?", ["Gradient becomes (mean − y)·x, and the NLL is convex", "It removes the likelihood", "It is non-linear", "It is faster than SGD"], 0, "This gives the same tidy gradient form across all GLMs."]
+  ],
+  M13: [
+    ["Why do we need non-linear activations in an MLP?", ["Stack of linear layers collapses to a single linear map", "To speed up training only", "To reduce parameters", "They are optional"], 0, "Without non-linearity depth adds nothing."],
+    ["Backpropagation is…", ["Gradient descent without gradients", "The chain rule applied efficiently from output to input", "Random search", "A kind of dropout"], 1, "It reuses intermediate results so all gradients cost about one extra forward pass."],
+    ["ReLU's main advantage over sigmoid in deep nets is…", ["Bounded output", "Gradients do not saturate for positive inputs", "Being smooth everywhere", "Zero-centred"], 1, "Sigmoid gradients vanish for large |z|."]
+  ],
+  M14: [
+    ["A convolution layer shares weights across positions, giving…", ["Translation equivariance and far fewer parameters", "Rotation invariance", "More parameters than dense", "No locality"], 0, "The same filter slides over the image."],
+    ["Max pooling mostly provides…", ["Small translation invariance and downsampling", "Learnable features", "Colour", "Normalisation"], 0, "It keeps the strongest response in each window."],
+    ["Residual connections (y = x + F(x)) help because…", ["Gradients can flow through the identity path in very deep nets", "They add parameters", "They reduce depth", "They replace ReLU"], 0, "They make optimisation of deep networks much easier."]
+  ],
+  M15: [
+    ["Why do vanilla RNNs struggle with long dependencies?", ["Vanishing/exploding gradients through many time steps", "They have no memory", "They cannot take sequences", "Too few parameters"], 0, "Repeated multiplication by the recurrent Jacobian shrinks or blows up gradients."],
+    ["Self-attention computes each output as…", ["A weighted sum of value vectors with weights softmax(QKᵀ/√d)", "The max over positions", "A convolution of fixed width", "An average of all inputs equally"], 0, "Weights are content dependent."],
+    ["Why add positional encodings to a Transformer?", ["Attention is permutation-equivariant and otherwise ignores order", "To reduce memory", "To normalise", "To add non-linearity"], 0, "Without them 'dog bites man' equals 'man bites dog'."]
+  ]
+});
+
+/* Self-check quizzes: Murphy 1 ch. 16–23 */
+Object.assign(QUIZ, {
+  M16: [
+    ["k-nearest neighbours with k=1 has…", ["Low variance, high bias", "Zero training error and high variance", "No hyperparameters", "A linear boundary"], 1, "Every training point is its own neighbour; boundaries are jagged."],
+    ["Why does kNN struggle in high dimensions?", ["Distances concentrate, so 'nearest' loses meaning", "It becomes linear", "It needs labels", "It overfits less"], 0, "The curse of dimensionality."],
+    ["A Gaussian process predicts with…", ["A mean and a variance at every test input", "Only a point estimate", "A tree", "No uncertainty"], 0, "The kernel defines how correlated function values are."]
+  ],
+  M17: [
+    ["The kernel trick lets us…", ["Compute inner products in a huge feature space without building it", "Skip training", "Avoid labels", "Reduce data"], 0, "k(x,x′) = φ(x)ᵀφ(x′) is evaluated directly."],
+    ["An SVM chooses the boundary that…", ["Maximises the margin", "Minimises the number of features", "Is closest to the mean", "Uses all points equally"], 0, "Only support vectors determine it."],
+    ["Large RBF bandwidth σ gives a…", ["Very smooth, nearly linear function", "Very wiggly function", "Discontinuous function", "No effect"], 0, "Points far apart still look similar."]
+  ],
+  M18: [
+    ["A decision tree split is chosen to…", ["Maximise impurity reduction (e.g. information gain or Gini)", "Maximise depth", "Equalise group size", "Pick a random feature"], 0, "Greedy, locally optimal splits."],
+    ["Random forests reduce variance by…", ["Averaging many decorrelated, bootstrapped trees", "Pruning to one stump", "Using one deep tree", "Boosting"], 0, "Bagging plus random feature subsets."],
+    ["Boosting differs from bagging in that…", ["Learners are trained sequentially, each focusing on previous errors", "It uses no data", "It averages in parallel", "It only reduces variance"], 0, "It mainly reduces bias."]
+  ],
+  M19: [
+    ["Data augmentation helps by…", ["Creating label-preserving variants of data, acting as regularisation", "Adding labels for free", "Replacing the model", "Reducing the test set"], 0, "It encodes invariances the model should have."],
+    ["Transfer learning typically means…", ["Reusing a pre-trained model and fine-tuning it on a small target set", "Training from scratch", "Moving data between GPUs", "Ignoring the source task"], 0, "Lower layers carry general features."],
+    ["Self-training (pseudo-labelling) risks…", ["Confirmation bias: reinforcing its own wrong labels", "Overusing labels", "Underfitting only", "Nothing"], 0, "Confident mistakes become training targets."]
+  ],
+  M20: [
+    ["PCA finds directions that…", ["Maximise projected variance (top eigenvectors of the covariance)", "Minimise the mean", "Separate classes", "Are random"], 0, "Equivalently, minimise reconstruction error."],
+    ["t-SNE/UMAP are mainly used for…", ["Visualising neighbourhood structure in 2D/3D", "Training classifiers", "Exact distances", "Compression with decoding guarantees"], 0, "Global distances in them are not reliable."],
+    ["An autoencoder with a bottleneck learns…", ["A compressed representation by reconstructing its input", "Labels", "A kernel", "Nothing without labels"], 0, "A linear one recovers the PCA subspace."]
+  ],
+  M21: [
+    ["k-means alternates between…", ["Assigning points to nearest centroid and recomputing centroids", "Splitting and merging trees", "Gradient steps on labels", "Sampling"], 0, "Each step lowers the within-cluster squared distance."],
+    ["k-means can fail when…", ["Clusters are non-spherical or very different in size", "k is 2", "Data is centred", "There are many points"], 0, "Gaussian mixtures with full covariances handle this."],
+    ["A Gaussian mixture model is fit with…", ["EM: soft assignments (E-step) then parameter updates (M-step)", "A closed form", "Sorting", "Backprop only"], 0, "EM monotonically increases the likelihood."]
+  ],
+  M22: [
+    ["Matrix factorisation for recommenders models rating r_ui as…", ["The dot product of user and item latent vectors", "The mean rating", "A tree path", "A random value"], 0, "Missing entries are predicted by the learned embeddings."],
+    ["The 'cold start' problem is…", ["No history for new users/items to learn from", "Slow hardware", "Too many users", "Over-regularisation"], 0, "Content features or popularity priors help."],
+    ["Implicit feedback (clicks) differs from ratings because…", ["Absence is not a dislike; negatives are unobserved", "It is more accurate", "It has no noise", "It needs no model"], 0, "So we weight or sample negatives."]
+  ],
+  M23: [
+    ["Node embeddings like DeepWalk/node2vec are learned by…", ["Predicting co-occurrence of nodes on random walks (skip-gram)", "Counting edges only", "Sorting nodes", "Using pixels"], 0, "Nodes near each other on walks get similar vectors."],
+    ["A graph convolution layer updates a node by…", ["Aggregating its neighbours' features then applying a learned transform", "Ignoring the graph", "Averaging all nodes in the graph equally", "Deleting edges"], 0, "Stacking layers widens the receptive field."],
+    ["Why can too many GNN layers hurt?", ["Over-smoothing: node representations become indistinguishable", "Too few parameters", "Not enough edges", "Labels vanish"], 0, "Repeated averaging washes out differences."]
+  ]
 });
 
 /* ================= learning paths: several ordered routes through stations, labs, sections, exercises and projects ================= */

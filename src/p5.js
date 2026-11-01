@@ -163,13 +163,21 @@ function renderChapter(b, n, ch) {
 let chapAskSection = null;
 /* self-check quizzes: QUIZ[key] = [[question, [options], correctIndex, explanation], ...] (files in src/quiz/) */
 const QUIZ = {};
+const QUIZ_N = {};
+/* rotate each question's options by a fixed per-question amount so the right answer isn't always first */
+function quizGet(key) {
+  const q = QUIZ[key]; if (!q || QUIZ_N[key]) return q;
+  const h = [...key].reduce((a, c) => a + c.charCodeAt(0), 0);
+  q.forEach((x, i) => { const n = x[1].length, r = (h + i * 3 + 1) % n; x[1] = x[1].map((_, k) => x[1][(k - r + n) % n]); x[2] = (x[2] + r) % n; });
+  QUIZ_N[key] = 1; return q;
+}
 function quizHTML(key) {
-  const q = QUIZ[key]; if (!q || !q.length) return "";
+  const q = quizGet(key); if (!q || !q.length) return "";
   return `<div class="block quiz" data-quiz="${key}"><h3>Self-check (${q.length} questions)</h3><p class="note" style="margin:0 0 6px">Answer from memory first; tap an option to see why it is right or wrong. Your score is saved in this browser.</p>${q.map((x, i) => `<div class="qz" data-i="${i}" style="margin:10px 0"><p style="margin:0 0 4px"><b>${i + 1}.</b> ${esc(x[0])}</p><div class="btns" style="margin:0;flex-direction:column;align-items:stretch">${x[1].map((o, j) => `<button type="button" class="btn small" data-j="${j}" style="text-align:left">${esc(o)}</button>`).join("")}</div><p class="note qz-fb" style="margin:4px 0 0;color:var(--ink)" hidden></p></div>`).join("")}<p class="note qz-score" style="margin:8px 0 0"></p></div>`;
 }
 function bindQuiz(root) {
   const box = root.querySelector(".quiz"); if (!box) return;
-  const key = box.dataset.quiz, q = QUIZ[key], sk = "nvl-quiz-" + key; let done = {};
+  const key = box.dataset.quiz, q = quizGet(key), sk = "nvl-quiz-" + key; let done = {};
   try { done = JSON.parse(localStorage.getItem(sk) || "{}"); } catch (e) { }
   const score = () => { const n = Object.keys(done).length, r = Object.values(done).filter(Boolean).length; box.querySelector(".qz-score").textContent = n ? `Score: ${r} / ${q.length}${n === q.length ? (r === q.length ? " · perfect, move on" : " · revisit the sections you missed") : ""}` : ""; };
   const mark = (el, j, auto) => {
