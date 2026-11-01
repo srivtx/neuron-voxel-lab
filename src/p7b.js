@@ -767,3 +767,84 @@ lab("a36causal", {
   },
   state() { const c = this.calc(); return `Causality lab (${this.p.mode}): observational diff ${pct(c.obs1 - c.obs0)}, causal do(X) diff +${pct(c.do1 - c.do0)}.`; }
 });
+
+/* ================= Murphy 1 ch.16 / Murphy 2 ch.17-18/34 — Gaussian Process & BO ================= */
+defLab("m16gp", {
+  title: "Gaussian process posterior: μ*(x), ±2σ*(x) tube & BO UCB", tab: "GP & BayesOpt", cam: [[0, 12, 18], [0, 1.8, 0]],
+  how: "Cyan pillars are observed points (x_n, y_n). The front ribbon shows the GP posterior mean μ*(x) (blue) surrounded by the ±2σ*(x) uncertainty tube (amber). Notice how uncertainty pinches near zero at observed points and swells in unexplored gaps! The back row shows the Bayesian Optimization Upper Confidence Bound α_UCB(x) = μ*(x) + β·σ*(x), with a green beacon marking the next query x_next.",
+  legend: () => `<b>Front: GP posterior · Back: UCB acquisition</b><div class="row"><span><i class="sw" style="background:var(--c2)"></i>posterior mean μ*(x)</span><span><i class="sw" style="background:var(--c4)"></i>uncertainty ±2σ*(x)</span><span><i class="sw" style="background:var(--c3)"></i>next BO query x*</span></div>`,
+  ctl: [
+    { s: "ell", label: "RBF lengthscale ℓ (smoothness)", min: 0.35, max: 2.2, step: 0.05, v: 0.95 },
+    { s: "sigN", label: "Observation noise σ_y", min: 0.02, max: 0.45, step: 0.02, v: 0.08 },
+    { s: "nObs", label: "Observed points N", min: 3, max: 7, step: 1, v: 4, fmt: d => d + " pts" },
+    { s: "beta", label: "BO exploration weight β (UCB)", min: 0, max: 3.5, step: 0.25, v: 1.75 }
+  ],
+  stats: [["maxStd", "Max posterior σ*(x)"], ["nextX", "Next BO query x*"], ["ucbMax", "Peak α_UCB(x*)"]],
+  change() { this.refresh(); },
+  calc() {
+    const allX = [-3.6, -1.8, 0.4, 2.8, -0.7, 1.6, -2.7].slice(0, this.p.nObs);
+    const fTrue = x => Math.sin(0.85 * x) + 0.35 * Math.cos(1.9 * x);
+    const allY = allX.map(fTrue);
+    const ell = this.p.ell, sn2 = this.p.sigN * this.p.sigN, N = allX.length;
+    const k = (a, b) => Math.exp(-0.5 * ((a - b) / ell) ** 2);
+    const K = Array.from({ length: N }, (_, i) => Array.from({ length: N }, (_, j) => k(allX[i], allX[j]) + (i === j ? sn2 + 1e-4 : 0)));
+    const A = K.map((r, i) => [...r, allY[i]]);
+    for (let i = 0; i < N; i++) {
+      let pv = A[i][i];
+      for (let j = i; j <= N; j++) A[i][j] /= pv;
+      for (let r = 0; r < N; r++) if (r !== i) { const f = A[r][i]; for (let j = i; j <= N; j++) A[r][j] -= f * A[i][j]; }
+    }
+    const alpha = A.map(r => r[N]);
+    const grid = [];
+    for (let gi = 0; gi < 25; gi++) {
+      const x = -4.2 + gi * (8.4 / 24);
+      const ks = allX.map(xi => k(x, xi));
+      const mu = ks.reduce((s, v, i) => s + v * alpha[i], 0);
+      const B = K.map((r, i) => [...r, ks[i]]);
+      for (let i = 0; i < N; i++) {
+        let pv = B[i][i];
+        for (let j = i; j <= N; j++) B[i][j] /= pv;
+        for (let r = 0; r < N; r++) if (r !== i) { const f = B[r][i]; for (let j = i; j <= N; j++) B[r][j] -= f * B[i][j]; }
+      }
+      const v = B.map(r => r[N]);
+      const varPost = Math.max(0.001, 1 - ks.reduce((s, kv, i) => s + kv * v[i], 0));
+      const std = Math.sqrt(varPost);
+      const ucb = mu + this.p.beta * std;
+      grid.push({ x, mu, std, ucb, t: fTrue(x) });
+    }
+    let best = grid[0];
+    for (const g of grid) if (g.ucb > best.ucb) best = g;
+    const maxStd = Math.max(...grid.map(g => g.std));
+    return { allX, allY, grid, best, maxStd };
+  },
+  refresh() {
+    const c = this.calc();
+    setS("maxStd", c.maxStd.toFixed(2));
+    setS("nextX", c.best.x.toFixed(2));
+    setS("ucbMax", c.best.ucb.toFixed(2));
+    labExtra(`<p style="margin:8px 0 0">Conditioning on ${c.allX.length} points via k(x,x') = exp(−(x−x')²/(2·${this.p.ell.toFixed(2)}²)) collapses σ*(x) near observations while keeping σ*(x) = ${c.maxStd.toFixed(2)} in the widest gap. UCB with β = ${this.p.beta.toFixed(2)} selects x* = ${c.best.x.toFixed(2)} (Murphy 1 §16.2, Murphy 2 §34.3).</p>`);
+  },
+  draw() {
+    const c = this.calc(), Y0 = 2.0, S = 1.25;
+    for (let i = 0; i < c.grid.length; i++) {
+      const g = c.grid[i], my = Y0 + g.mu * S, band = Math.max(0.08, 2 * g.std * S);
+      V.box(g.x, my - band * 0.5, 1.4, 0.28, band, 0.35, C.c4, null);
+      V.box(g.x, my - 0.09, 1.4, 0.3, 0.18, 0.48, C.c2, null);
+      if (i > 0) {
+        const p = c.grid[i - 1];
+        Ln.seg(p.x, Y0 + p.mu * S, 1.4, g.x, my, 1.4, C.c2);
+        Ln.seg(p.x, Y0 + p.t * S, 1.4, g.x, Y0 + g.t * S, 1.4, C.c5);
+      }
+      const uH = Math.max(0.15, (g.ucb + 1.6) * 0.95);
+      const isBest = g === c.best;
+      V.box(g.x, 0, -2.0, 0.26, uH, 0.42, isBest ? C.c3 : C.c5, null);
+      if (isBest) pin(g.x, uH + 0.5, -2.0, `BO next x*=${g.x.toFixed(1)}`, "ok");
+    }
+    for (let i = 0; i < c.allX.length; i++) {
+      const x = c.allX[i], y = Y0 + c.allY[i] * S;
+      V.box(x, 0, 1.4, 0.22, Math.max(0.2, y), 0.22, C.c3, null);
+      pin(x, y + 0.4, 1.4, `y_${i + 1}`, "flat");
+    }
+  },
+  state() { const c = this.calc(); return `GP & BayesOpt lab: ℓ=${this.p.ell}, N=${this.p.nObs}, max σ*=${c.maxStd.toFixed(2)}, next query x*=${c.best.x.toFixed(2)}.`; }
+});
