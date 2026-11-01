@@ -1007,3 +1007,69 @@ defLab("a21vae", {
   },
   state() { const c = this.calc(); return `VAE Latent Space lab: β=${this.p.beta}, ‖μ‖=${c.r.toFixed(2)}, σ=${c.sig.toFixed(2)}, KL=${c.kl.toFixed(2)} nats.`; }
 });
+
+/* ================= Murphy 2 ch.23 — Normalizing Flow Coupling Bijection & Jacobian ================= */
+defLab("a23flow", {
+  title: "Normalizing flow: x = f_K∘…∘f_1(z) & |det J_f| volume warp", tab: "Normalizing Flow", cam: [[0, 14, 18], [0, 1.8, 0]],
+  how: "A 5×5 grid of base Gaussian mass z ~ N(0, I) is pushed through K invertible RealNVP-style coupling layers: x_1 = z_1, x_2 = z_2 · exp(s(z_1)) + t(z_1). By conservation of probability, wherever the flow stretches area (|det J| > 1, wide footprint), the density tower height p(x) = p(z) / |det J| shrinks; wherever it pinches area (|det J| < 1), the density spikes!",
+  legend: () => `<b>Height = transformed density p_X(x) · Width = Jacobian stretch</b><div class="row"><span><i class="sw" style="background:var(--c2)"></i>compressed (high density)</span><span><i class="sw" style="background:var(--c3)"></i>neutral volume</span><span><i class="sw" style="background:var(--c4)"></i>stretched (low density)</span></div>`,
+  ctl: [
+    { s: "layers", label: "Active coupling layers K", min: 0, max: 4, step: 1, v: 3, fmt: d => d + " layers" },
+    { s: "sScale", label: "Log-scale coupling amplitude s(z_1)", min: 0.0, max: 0.75, step: 0.05, v: 0.45 },
+    { s: "tScale", label: "Shear/ crescent translation amplitude t(z_1)", min: 0.0, max: 1.5, step: 0.1, v: 0.8 }
+  ],
+  stats: [["maxLogJ", "Max log |det J|"], ["minLogJ", "Min log |det J|"], ["mass", "Total integrated mass"]],
+  change() { this.refresh(); },
+  calc() {
+    const K = this.p.layers, sA = this.p.sScale, tA = this.p.tScale;
+    const pts = [];
+    let maxL = -99, minL = 99;
+    const coords = [-1.6, -0.8, 0, 0.8, 1.6];
+    for (const z10 of coords) {
+      for (const z20 of coords) {
+        let x1 = z10, x2 = z20, logDet = 0;
+        const pz = Math.exp(-0.5 * (z10 * z10 + z20 * z20));
+        for (let k = 1; k <= K; k++) {
+          if (k % 2 === 1) {
+            const s = sA * Math.sin(1.2 * x1);
+            const t = tA * (0.45 * x1 * x1 - 0.5);
+            x2 = x2 * Math.exp(s) + t;
+            logDet += s;
+          } else {
+            const s = sA * 0.6 * Math.cos(1.1 * x2);
+            const t = tA * 0.35 * Math.sin(x2);
+            x1 = x1 * Math.exp(s) + t;
+            logDet += s;
+          }
+        }
+        const px = pz * Math.exp(-logDet);
+        if (logDet > maxL) maxL = logDet;
+        if (logDet < minL) minL = logDet;
+        pts.push({ z10, z20, x1, x2, logDet, pz, px });
+      }
+    }
+    if (K === 0) { maxL = 0; minL = 0; }
+    return { pts, maxL, minL };
+  },
+  refresh() {
+    const c = this.calc();
+    setS("maxLogJ", (c.maxL >= 0 ? "+" : "") + c.maxL.toFixed(2));
+    setS("minLogJ", (c.minL >= 0 ? "+" : "") + c.minL.toFixed(2));
+    setS("mass", "1.000 (exact)");
+    labExtra(`<p style="margin:8px 0 0">After K = ${this.p.layers} triangular coupling layers, log |det J_f(z)| = Σ_k s_k(z) ranges from <b>${c.minL.toFixed(2)}</b> to <b>+${c.maxL.toFixed(2)}</b>. Because each coupling Jacobian is triangular, its determinant is computed in O(D) instead of O(D³), giving exact tractable likelihoods log p_X(x) = log p_Z(f⁻¹(x)) − log |det J_f| (Murphy 2 §23.2).</p>`);
+  },
+  draw() {
+    const c = this.calc();
+    for (const p of c.pts) {
+      const stretch = Math.exp(0.5 * p.logDet);
+      const w = clamp(0.36 * stretch, 0.18, 0.72);
+      const h = clamp(p.px * 3.6, 0.12, 5.2);
+      const col = p.logDet < -0.15 ? C.c2 : p.logDet > 0.15 ? C.c4 : C.c3;
+      V.box(p.x1 * 1.55, 0, p.x2 * 1.35, w, h, w, col, null);
+      if (this.p.layers > 0 && Math.abs(p.z10) === 1.6 && Math.abs(p.z20) === 1.6) {
+        Ln.seg(p.z10 * 1.55, 0.1, p.z20 * 1.35, p.x1 * 1.55, h, p.x2 * 1.35, C.c5);
+      }
+    }
+  },
+  state() { const c = this.calc(); return `Normalizing Flow lab: K=${this.p.layers} coupling layers, log|det J| in [${c.minL.toFixed(2)}, ${c.maxL.toFixed(2)}].`; }
+});
