@@ -114,20 +114,30 @@ function renderChapter(b, n, ch) {
   const sims = (info && info.sims && info.sims.length) ? info.sims : old ? old[6] : [], explained = secs.filter(s => SEC[b + s[0]]).length;
   const why = info ? info.why : old ? old[5] : "This chapter's sections are listed below. Explanations and labs are coming in a later pass; you can already ask about any section.";
   const nonExSecs = secs.filter(x => !/^(Exercises|Summary)$/.test(x[1].trim()));
+  const exCount = secs.filter(s => SEC[b + s[0]] && SEC[b + s[0]].ex).length;
+  const codeCount = secs.filter(s => SEC[b + s[0]] && SEC[b + s[0]].code).length;
+  const liveCount = secs.reduce((acc, s) => acc + ((LIVE_SEC[b + s[0]] || []).length), 0);
   const status = explained ? `<span class="pill ok">${explained} of ${nonExSecs.length} sections explained</span>` : (!nonExSecs.length && info) ? `<span class="pill ok">chapter overview explained</span>` : `<span class="pill">sections listed · explanations coming</span>`;
   const eqs = [...((info && info.eqs) || []), ...((old && old[7]) || []).filter(e => e[0] !== "—")];
   const seenEq = new Set(eqs.map(e => e[0]));
   for (const s of secs) { const se = SEC[b + s[0]]; if (se && se.eq && !seenEq.has(se.eq[0]) && eqs.length < 4) { eqs.push(se.eq); seenEq.add(se.eq[0]); } }
   const v = $("#chapview");
   v.innerHTML = `<div><p class="eyebrow">${esc(BOOKN[b])} · chapter ${n} · p. ${ch[2]}</p><h2>${esc(ch[1].replace(/\s*\*$/, ""))}</h2>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px">${status}${sims.length ? `<span class="pill">${sims.length} lab${sims.length > 1 ? "s" : ""}</span>` : ""}${/\*$/.test(ch[1]) ? `<span class="pill">* advanced chapter</span>` : ""}</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px">${status}${sims.length ? `<span class="pill">${sims.length} lab${sims.length > 1 ? "s" : ""}</span>` : ""}${liveCount ? `<span class="pill">${liveCount} live eq${liveCount > 1 ? "s" : ""}</span>` : ""}${exCount ? `<span class="pill">${exCount} worked ex</span>` : ""}${codeCount ? `<span class="pill">${codeCount} code</span>` : ""}${/\*$/.test(ch[1]) ? `<span class="pill">* advanced chapter</span>` : ""}</div>
     <p class="lede"><b>Why this chapter exists.</b> ${esc(why)}</p>${info ? `<p class="note">Builds on: ${esc(info.builds)}.</p>` : ""}
     ${eqs.length ? `<div class="block" style="margin-top:12px"><h3>The key equations, in words</h3>${eqs.map(([e, w]) => `<div class="eq" style="font-size:15px;padding:6px 10px;margin-top:6px">${esc(e)}</div><p class="note" style="margin:4px 0 0;color:var(--ink)">${esc(w)}</p>`).join("")}</div>` : ""}</div>
     ${sims.length ? `<div class="block"><h3>Labs for this chapter</h3><div class="btns" style="margin:0">${sims.map(s => `<button type="button" class="btn" data-sim="${s}" aria-pressed="false">${esc(ST[s].isLab ? ST[s].tab : "Station " + s.slice(1) + ": " + ST[s].tab)}</button>`).join("")}</div></div>` : ""}
     <div class="block" id="lab" hidden></div>
-    ${secs.length ? `<div><h3 style="font:700 18px var(--f-display);margin:6px 0 8px">Sections</h3><div class="secs">${secs.map(s => secCard(b, s, rows)).join("")}</div></div>` : ""}
+    ${secs.length ? `<div><div style="display:flex;justify-content:space-between;align-items:center;margin:6px 0 8px"><h3 style="font:700 18px var(--f-display);margin:0">Sections</h3><button type="button" class="btn small" data-expand-all>Expand all</button></div><div class="secs">${secs.map(s => secCard(b, s, rows)).join("")}</div></div>` : ""}
     <div class="block ask" id="chap-ask"></div>
     <div class="btns" style="justify-content:space-between"><button class="btn" type="button" data-step="-1">← Previous chapter</button><button class="btn primary" type="button" data-step="1">Next chapter →</button></div>`;
+  const expBtn = v.querySelector("[data-expand-all]");
+  if (expBtn) expBtn.onclick = () => {
+    const details = [...v.querySelectorAll("details.sec:not(.ex)")];
+    const anyClosed = details.some(d => !d.open);
+    details.forEach(d => { d.open = anyClosed; });
+    expBtn.textContent = anyClosed ? "Collapse all" : "Expand all";
+  };
   v.querySelectorAll("[data-sim]").forEach(x => x.onclick = () => startSim(x.dataset.sim));
   v.querySelectorAll("details.sec").forEach(d => d.addEventListener("toggle", () => {
     if (!d.open || d.dataset.ai) return; d.dataset.ai = 1; bindLive(d); if (typeof bindCopy === "function") bindCopy(d);
@@ -151,8 +161,9 @@ function renderChapter(b, n, ch) {
 let chapAskSection = null;
 function secCard(b, s, rows) {
   const e = SEC[b + s[0]], subs = rows.filter(r => r[0].startsWith(s[0] + ".") && r[0].split(".").length === 3), star = /\*\s*$/.test(s[1]), title = s[1].replace(/\s*\*\s*$/, "");
-  const ex = /^Exercises|^Summary/.test(title);
-  return `<details class="sec" id="sec-${s[0].replace(/\./g, "-")}"${e && !ex ? "" : ""}><summary><span class="sn">§${s[0]}</span><span class="st">${esc(title)}</span><span class="sp">p. ${s[2]}${star ? " · *" : ""}</span>${e ? `<i class="dot ok" title="explained"></i>` : ex ? "" : `<i class="dot" title="not explained yet"></i>`}</summary>
+  const ex = /^Exercises|^Summary/.test(title), hasLive = (LIVE_SEC[b + s[0]] || []).length > 0;
+  const tags = [e && e.sim ? "3D" : "", hasLive ? "live" : "", e && e.ex ? "ex" : "", e && e.code ? "code" : ""].filter(Boolean).join(" · ");
+  return `<details class="sec" id="sec-${s[0].replace(/\./g, "-")}"${e && !ex ? "" : ""}><summary><span class="sn">§${s[0]}</span><span class="st">${esc(title)}</span><span class="sp">${tags ? `<em style="color:var(--c3);font-style:normal;margin-right:6px">${tags}</em>` : ""}p. ${s[2]}${star ? " · *" : ""}</span>${e ? `<i class="dot ok" title="explained"></i>` : ex ? "" : `<i class="dot" title="not explained yet"></i>`}</summary>
     <div class="sec-body">${EASY[b + s[0]] ? `<p class="easy"><span class="tag">Easy</span>${esc(EASY[b + s[0]])}</p>` : ""}${e ? `<p>${esc(e.t)}</p>${e.eq ? `<div class="eq" style="font-size:15px;padding:6px 10px">${esc(e.eq[0])}</div><p class="note" style="margin:4px 0 0;color:var(--ink)">${esc(e.eq[1])}</p>` : ""}${e.ex ? `<div class="callout" style="margin-top:4px"><span class="eyebrow" style="color:var(--c4);display:block;margin-bottom:2px">Worked example</span>${esc(e.ex)}</div>` : ""}${e.code && typeof codeBlock === "function" ? codeBlock(e.code, e.codeLabel || "In code (NumPy / PyTorch)") : ""}` : ex ? `<p class="note" style="margin:0">Exercises: try them after the labs; ask below if you get stuck.</p>` : `<p class="note" style="margin:0">Not explained on the site yet. Use <b>Ask</b> for a from-scratch explanation now.</p>`}
     <p class="note" style="margin:6px 0 0">First pass: <b>${star ? "skip for now (marked * in the book)" : ex ? "after the chapter" : "read"}</b></p>
     ${(LIVE_SEC[b + s[0]] || []).map(liveHTML).join("")}
