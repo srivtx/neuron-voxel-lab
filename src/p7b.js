@@ -769,7 +769,7 @@ lab("a36causal", {
 });
 
 /* ================= Murphy 1 ch.16 / Murphy 2 ch.17-18/34 — Gaussian Process & BO ================= */
-defLab("m16gp", {
+lab("m16gp", {
   title: "Gaussian process posterior: μ*(x), ±2σ*(x) tube & BO UCB", tab: "GP & BayesOpt", cam: [[0, 12, 18], [0, 1.8, 0]],
   how: "Cyan pillars are observed points (x_n, y_n). The front ribbon shows the GP posterior mean μ*(x) (blue) surrounded by the ±2σ*(x) uncertainty tube (amber). Notice how uncertainty pinches near zero at observed points and swells in unexplored gaps! The back row shows the Bayesian Optimization Upper Confidence Bound α_UCB(x) = μ*(x) + β·σ*(x), with a green beacon marking the next query x_next.",
   legend: () => `<b>Front: GP posterior · Back: UCB acquisition</b><div class="row"><span><i class="sw" style="background:var(--c2)"></i>posterior mean μ*(x)</span><span><i class="sw" style="background:var(--c4)"></i>uncertainty ±2σ*(x)</span><span><i class="sw" style="background:var(--c3)"></i>next BO query x*</span></div>`,
@@ -850,7 +850,7 @@ defLab("m16gp", {
 });
 
 /* ================= D2L ch.8-9 — ResNet Residual Skip Highway vs Plain Gradient Flow ================= */
-defLab("d9resnet", {
+lab("d9resnet", {
   title: "ResNet skip highway: why ∂L/∂x_0 survives 100 layers", tab: "ResNet vs Plain", cam: [[0, 13, 18], [0, 1.8, 0]],
   how: "Each column is a network layer l = 1 … L from left (input x_0) to right (loss L). The back row is a Plain network h_l = f(h_{l-1}) where the backward gradient multiplies by ∂f/∂h at every step—vanishing to dust when |∂f/∂h| < 1! The front row is a Residual network h_l = h_{l-1} + f(h_{l-1}), where the identity skip arc (green) carries the gradient ∂L/∂h_0 = ∂L/∂h_L · Π(I + ∂f_l/∂h) all the way back to layer 1.",
   legend: () => `<b>Tower height = backward gradient norm ‖∂L/∂h_l‖</b><div class="row"><span><i class="sw" style="background:var(--c3)"></i>ResNet h + f(h) (front)</span><span><i class="sw" style="background:var(--c1)"></i>Plain f(h) (back)</span><span><i class="sw" style="background:var(--c4)"></i>identity skip arc +I</span></div>`,
@@ -904,7 +904,7 @@ defLab("d9resnet", {
 });
 
 /* ================= D2L ch.10 / Murphy 1 ch.15 — LSTM Cell-State Conveyor & Gates ================= */
-defLab("d10lstm", {
+lab("d10lstm", {
   title: "LSTM cell-state highway: c_t = f_t ⊙ c_{t-1} + i_t ⊙ c̃_t", tab: "LSTM Gates", cam: [[0, 13, 18], [0, 1.8, 0]],
   how: "An important token arrives at step t = 1 (leftmost amber pillar) followed by 6 distractor steps. The center rail shows the LSTM cell state c_t (green towers), updated additively by c_t = f_t · c_{t-1} + i_t · c̃_t. The front row shows the hidden output h_t = o_t · tanh(c_t) (blue), while the back row shows a vanilla RNN whose state decays exponentially when distracted.",
   legend: () => `<b>Sequence t = 1 … 7 across time</b><div class="row"><span><i class="sw" style="background:var(--c3)"></i>LSTM cell state c_t</span><span><i class="sw" style="background:var(--c2)"></i>hidden output h_t</span><span><i class="sw" style="background:var(--c1)"></i>vanilla RNN state</span></div>`,
@@ -960,7 +960,7 @@ defLab("d10lstm", {
 });
 
 /* ================= Murphy 2 ch.21 / D2L ch.20 — VAE Latent Space & β-KL Trade-off ================= */
-defLab("a21vae", {
+lab("a21vae", {
   title: "VAE latent space: q_φ(z|x) = N(μ_φ(x), σ²_φ(x)) vs prior N(0, I)", tab: "VAE Latent Space", cam: [[0, 14, 18], [0, 1.8, 0]],
   how: "Four encoder posteriors q_φ(z|x_k) are shown in 3D latent space around the origin prior N(0, I). Each cluster has a center pillar at μ_φ(x_k) surrounded by reparameterized samples z = μ + σ ⊙ ε. When β (the KL weight in the β-VAE ELBO) is near 0, clusters drift far apart with tiny σ (holes in latent space, deterministic autoencoder). When β is large, posteriors overlap at the origin with σ → 1 (posterior collapse).",
   legend: () => `<b>4 latent classes around prior N(0, I)</b><div class="row"><span><i class="sw" style="background:var(--c1)"></i>class A</span><span><i class="sw" style="background:var(--c2)"></i>class B</span><span><i class="sw" style="background:var(--c3)"></i>class C</span><span><i class="sw" style="background:var(--c4)"></i>class D</span></div>`,
@@ -1009,7 +1009,7 @@ defLab("a21vae", {
 });
 
 /* ================= Murphy 2 ch.23 — Normalizing Flow Coupling Bijection & Jacobian ================= */
-defLab("a23flow", {
+lab("a23flow", {
   title: "Normalizing flow: x = f_K∘…∘f_1(z) & |det J_f| volume warp", tab: "Normalizing Flow", cam: [[0, 14, 18], [0, 1.8, 0]],
   how: "A 5×5 grid of base Gaussian mass z ~ N(0, I) is pushed through K invertible RealNVP-style coupling layers: x_1 = z_1, x_2 = z_2 · exp(s(z_1)) + t(z_1). By conservation of probability, wherever the flow stretches area (|det J| > 1, wide footprint), the density tower height p(x) = p(z) / |det J| shrinks; wherever it pinches area (|det J| < 1), the density spikes!",
   legend: () => `<b>Height = transformed density p_X(x) · Width = Jacobian stretch</b><div class="row"><span><i class="sw" style="background:var(--c2)"></i>compressed (high density)</span><span><i class="sw" style="background:var(--c3)"></i>neutral volume</span><span><i class="sw" style="background:var(--c4)"></i>stretched (low density)</span></div>`,
@@ -1075,7 +1075,7 @@ defLab("a23flow", {
 });
 
 /* ================= Murphy 2 ch.26 / D2L ch.20 — GAN Minimax Discriminator Field & Mode Collapse ================= */
-defLab("a26gan", {
+lab("a26gan", {
   title: "GAN minimax game: D*(x) = p_data/(p_data + p_G) & mode collapse", tab: "GAN & Mode Collapse", cam: [[0, 14, 18], [0, 1.8, 0]],
   how: "Four green beacons mark the true 4-mode data distribution p_data(x). Amber pillars are generator samples G_θ(z), while the blue floor grid shows the optimal discriminator surface D*(x) = p_data(x) / (p_data(x) + p_G(x)). At Nash equilibrium, p_G matches all 4 modes and D*(x) flattens to 0.5 everywhere. Switch to Mode Collapse to watch G_θ pile all mass onto a single mode!",
   legend: () => `<b>Green = real modes · Amber = G(z) · Blue floor = D*(x)</b><div class="row"><span><i class="sw" style="background:var(--c3)"></i>real data modes</span><span><i class="sw" style="background:var(--c4)"></i>generator G(z)</span><span><i class="sw" style="background:var(--c2)"></i>discriminator D*(x)</span></div>`,
