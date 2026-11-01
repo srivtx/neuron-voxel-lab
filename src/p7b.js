@@ -902,3 +902,59 @@ defLab("d9resnet", {
   },
   state() { const c = this.calc(); return `ResNet vs Plain lab: L=${c.L}, plain grad=${c.gPlain.toFixed(4)}, ResNet grad=${c.gRes.toFixed(3)}.`; }
 });
+
+/* ================= D2L ch.10 / Murphy 1 ch.15 — LSTM Cell-State Conveyor & Gates ================= */
+defLab("d10lstm", {
+  title: "LSTM cell-state highway: c_t = f_t ⊙ c_{t-1} + i_t ⊙ c̃_t", tab: "LSTM Gates", cam: [[0, 13, 18], [0, 1.8, 0]],
+  how: "An important token arrives at step t = 1 (leftmost amber pillar) followed by 6 distractor steps. The center rail shows the LSTM cell state c_t (green towers), updated additively by c_t = f_t · c_{t-1} + i_t · c̃_t. The front row shows the hidden output h_t = o_t · tanh(c_t) (blue), while the back row shows a vanilla RNN whose state decays exponentially when distracted.",
+  legend: () => `<b>Sequence t = 1 … 7 across time</b><div class="row"><span><i class="sw" style="background:var(--c3)"></i>LSTM cell state c_t</span><span><i class="sw" style="background:var(--c2)"></i>hidden output h_t</span><span><i class="sw" style="background:var(--c1)"></i>vanilla RNN state</span></div>`,
+  ctl: [
+    { s: "fg", label: "Forget gate f_t (memory retention)", min: 0.2, max: 0.99, step: 0.03, v: 0.95 },
+    { s: "ig", label: "Input gate i_t on distractors", min: 0.0, max: 0.8, step: 0.05, v: 0.10 },
+    { s: "og", label: "Output gate o_t (readout strength)", min: 0.2, max: 1.0, step: 0.05, v: 0.85 }
+  ],
+  stats: [["cEnd", "Final LSTM cell c_7"], ["hEnd", "Final LSTM readout h_7"], ["rnnEnd", "Vanilla RNN state at t=7"]],
+  change() { this.refresh(); },
+  calc() {
+    const f = this.p.fg, ig = this.p.ig, og = this.p.og;
+    const steps = [];
+    let c = 1.0, r = 1.0;
+    for (let t = 1; t <= 7; t++) {
+      if (t > 1) {
+        const cand = (t % 2 === 0 ? -0.25 : 0.15);
+        c = f * c + ig * cand;
+        r = Math.tanh(0.55 * r + 0.2 * cand);
+      }
+      const h = og * Math.tanh(c);
+      steps.push({ t, c, h, r });
+    }
+    return { steps, last: steps[steps.length - 1] };
+  },
+  refresh() {
+    const { last } = this.calc();
+    setS("cEnd", last.c.toFixed(3));
+    setS("hEnd", last.h.toFixed(3));
+    setS("rnnEnd", last.r.toFixed(3));
+    labExtra(`<p style="margin:8px 0 0">With forget gate f_t = ${this.p.fg.toFixed(2)} and distractor input gate i_t = ${this.p.ig.toFixed(2)}, the t=1 signal survives 6 steps along the additive cell highway with c_7 = <b>${last.c.toFixed(3)}</b> (readout h_7 = ${last.h.toFixed(3)}), whereas the vanilla RNN state decays to ${last.r.toFixed(3)} because ∂c_t/∂c_{t-1} = f_t ≈ 1 avoids repeated weight-matrix squashing (D2L §10.1, Murphy 1 §15.2.3).</p>`);
+  },
+  draw() {
+    const { steps } = this.calc(), H = 3.6;
+    for (let i = 0; i < steps.length; i++) {
+      const s = steps[i], x = -4.2 + i * 1.4;
+      const hc = Math.max(0.1, Math.abs(s.c) * H), hh = Math.max(0.1, Math.abs(s.h) * H), hr = Math.max(0.08, Math.abs(s.r) * H);
+      V.box(x, 0, 0, 0.52, hc, 0.52, C.c3, null);
+      V.box(x, 0, 1.9, 0.45, hh, 0.45, C.c2, null);
+      V.box(x, 0, -1.9, 0.45, hr, 0.45, C.c1, null);
+      if (i > 0) {
+        const xp = -4.2 + (i - 1) * 1.4;
+        Ln.seg(xp, Math.abs(steps[i - 1].c) * H, 0, x, hc, 0, C.c3);
+        Ln.seg(xp, Math.abs(steps[i - 1].r) * H, -1.9, x, hr, -1.9, C.c1);
+      }
+      if (i === 0 || i === steps.length - 1) {
+        pin(x, hc + 0.45, 0, `c_${s.t}=${s.c.toFixed(2)}`, "ok");
+        pin(x, hr + 0.45, -1.9, `rnn_${s.t}=${s.r.toFixed(2)}`, i > 0 && Math.abs(s.r) < 0.15 ? "hot" : "flat");
+      }
+    }
+  },
+  state() { const { last } = this.calc(); return `LSTM Gates lab: f=${this.p.fg}, i=${this.p.ig}, o=${this.p.og}, c_7=${last.c.toFixed(3)}, rnn_7=${last.r.toFixed(3)}.`; }
+});
