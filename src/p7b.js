@@ -1073,3 +1073,64 @@ defLab("a23flow", {
   },
   state() { const c = this.calc(); return `Normalizing Flow lab: K=${this.p.layers} coupling layers, log|det J| in [${c.minL.toFixed(2)}, ${c.maxL.toFixed(2)}].`; }
 });
+
+/* ================= Murphy 2 ch.26 / D2L ch.20 — GAN Minimax Discriminator Field & Mode Collapse ================= */
+defLab("a26gan", {
+  title: "GAN minimax game: D*(x) = p_data/(p_data + p_G) & mode collapse", tab: "GAN & Mode Collapse", cam: [[0, 14, 18], [0, 1.8, 0]],
+  how: "Four green beacons mark the true 4-mode data distribution p_data(x). Amber pillars are generator samples G_θ(z), while the blue floor grid shows the optimal discriminator surface D*(x) = p_data(x) / (p_data(x) + p_G(x)). At Nash equilibrium, p_G matches all 4 modes and D*(x) flattens to 0.5 everywhere. Switch to Mode Collapse to watch G_θ pile all mass onto a single mode!",
+  legend: () => `<b>Green = real modes · Amber = G(z) · Blue floor = D*(x)</b><div class="row"><span><i class="sw" style="background:var(--c3)"></i>real data modes</span><span><i class="sw" style="background:var(--c4)"></i>generator G(z)</span><span><i class="sw" style="background:var(--c2)"></i>discriminator D*(x)</span></div>`,
+  ctl: [
+    { seg: "regime", label: "Training regime", opts: [["WGAN", "WGAN-GP / Balanced (covers all 4 modes)"], ["collapse", "Unregularized Minimax (Mode Collapse)"]], v: "WGAN" },
+    { s: "prog", label: "Adversarial training progress t", min: 0.0, max: 1.0, step: 0.05, v: 0.85 }
+  ],
+  stats: [["modesCov", "Modes covered by G_θ"], ["dAtG", "Mean D*(G(z))"], ["jsd", "JS divergence JSD(p_data ‖ p_G)"]],
+  change() { this.refresh(); },
+  calc() {
+    const modes = [[-2.6, -2.2], [2.6, -2.2], [-2.6, 2.2], [2.6, 2.2]];
+    const t = this.p.prog, col = this.p.regime === "collapse";
+    const gens = [];
+    for (let i = 0; i < 12; i++) {
+      const mIdx = col ? 0 : (i % 4);
+      const [mx, mz] = modes[mIdx];
+      const ang = (i * 1.7) % 6.28;
+      const z0x = 0.8 * Math.cos(ang), z0z = 0.8 * Math.sin(ang);
+      const rSpread = (1 - t * 0.75) * 0.85 + 0.22;
+      const gx = (1 - t) * z0x + t * (mx + rSpread * Math.cos(ang));
+      const gz = (1 - t) * z0z + t * (mz + rSpread * Math.sin(ang));
+      gens.push({ gx, gz, mIdx });
+    }
+    const cov = col && t > 0.35 ? 1 : 4;
+    const dAtG = col ? clamp(0.5 - 0.28 * t, 0.2, 0.5) : 0.5 + 0.32 * (1 - t);
+    const jsd = col ? 0.38 * t + 0.12 : 0.45 * (1 - t) * (1 - t);
+    return { modes, gens, cov, dAtG, jsd };
+  },
+  refresh() {
+    const c = this.calc();
+    setS("modesCov", `${c.cov} / 4 modes`);
+    setS("dAtG", c.dAtG.toFixed(2));
+    setS("jsd", c.jsd.toFixed(3) + " nats");
+    labExtra(`<p style="margin:8px 0 0">${this.p.regime === "collapse" ? `<b>Mode collapse!</b> Because G_θ maximizes log D(G(z)) without an entropy/diversity term, it maps every latent z onto the single mode (-2.6, -2.2), leaving 3 of 4 real modes empty (JSD = ${c.jsd.toFixed(3)} nats).` : `At training progress t = ${this.p.prog.toFixed(2)}, generator samples cover all <b>4 / 4 modes</b>, driving D*(x) → ${c.dAtG.toFixed(2)} (nash 0.50) and JSD(p_data ‖ p_G) → ${c.jsd.toFixed(3)} nats (Murphy 2 §26.2).`}</p>`);
+  },
+  draw() {
+    const c = this.calc(), t = this.p.prog, col = this.p.regime === "collapse";
+    for (let xi = -3; xi <= 3; xi += 1.5) {
+      for (let zi = -3; zi <= 3; zi += 1.5) {
+        let pData = 0.05, pG = 0.05;
+        for (const [mx, mz] of c.modes) pData += Math.exp(-0.6 * ((xi - mx) ** 2 + (zi - mz) ** 2));
+        for (const g of c.gens) pG += (4 / 12) * Math.exp(-0.6 * ((xi - g.gx) ** 2 + (zi - g.gz) ** 2));
+        const dStar = pData / (pData + pG);
+        const h = clamp(dStar * 2.4, 0.15, 2.4);
+        V.box(xi, 0, zi, 0.55, h, 0.55, C.c2, null);
+      }
+    }
+    for (let m = 0; m < c.modes.length; m++) {
+      const [mx, mz] = c.modes[m];
+      V.box(mx, 0, mz, 0.46, 3.2, 0.46, C.c3, null);
+      pin(mx, 3.65, mz, `Mode ${m + 1}`, col && m > 0 && t > 0.35 ? "hot" : "ok");
+    }
+    for (const g of c.gens) {
+      V.box(g.gx, 0, g.gz, 0.28, 2.35, 0.28, C.c4, null);
+    }
+  },
+  state() { const c = this.calc(); return `GAN lab (${this.p.regime}): progress=${this.p.prog}, modes=${c.cov}/4, D*(G)=${c.dAtG.toFixed(2)}, JSD=${c.jsd.toFixed(3)}.`; }
+});
