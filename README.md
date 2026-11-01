@@ -80,7 +80,7 @@ Then go deeper           Deep learning in practice (D2L, PyTorch) ─ Probabilis
 </tr>
 </table>
 
-- **Easy layer first.** Every explained section opens with a one-line plain-English version, then the precise one, plus **90 worked numerical examples**, **81 runnable NumPy/PyTorch snippets** (spanning every single chapter across all three books) and subsection notes.
+- **Easy layer first.** Every explained section opens with a one-line plain-English version, then the precise one, plus **235 self-check quiz questions** (one quiz per chapter, scored and saved in your browser), **90 worked numerical examples**, **81 runnable NumPy/PyTorch snippets** (spanning every single chapter across all three books) and subsection notes.
 - **10 build projects** with milestones, questions, starter code and full solutions. Every number in an answer comes from running the solution:
 
   | # | Project | Track | What you build |
@@ -273,6 +273,7 @@ The key is the book letter (`M` = Murphy 1, `D` = D2L, `A` = Murphy 2) plus the 
 │   ├── p2.js                # voxel engine, label layout, tiny NN library, stations 1–10
 │   ├── p4.js                # lab framework + Murphy 1 ch. 1–8 labs
 │   ├── p5easy.js, p5.js     # easy layer, chapter intros, section text, chapter pages
+│   ├── quiz/*.js            # self-check quizzes for all 80 chapters (3 questions each, 2 in some)
 │   ├── ch/*.js              # all 80 chapter files (M15–M23, D1–D21, A1–A36) with worked examples & code
 │   ├── p6a.js               # concepts (131), floors, symbols (54)
 │   ├── p6b.js               # live equations UI, AI client with streaming & normalizer, library, concept tower
@@ -313,6 +314,7 @@ The key is the book letter (`M` = Murphy 1, `D` = D2L, `A` = Murphy 2) plus the 
 
 ## Roadmap
 
+- [x] Self-check quiz at the end of every chapter (235 questions, instant feedback, saved scores)
 - [x] Section-by-section explanations for Murphy 1 ch. 15–23
 - [x] Section-by-section explanations for D2L and Murphy 2 (all 80 chapters & 490 non-exercise sections explained with easy analogies, 90 worked examples, 81 code snippets and 45 live equations)
 - [x] Learning paths, with 10 build projects (including CNN, Transformer, VAE and Actor-Critic RL from scratch)
