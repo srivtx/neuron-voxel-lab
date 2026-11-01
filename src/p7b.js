@@ -848,3 +848,57 @@ defLab("m16gp", {
   },
   state() { const c = this.calc(); return `GP & BayesOpt lab: ℓ=${this.p.ell}, N=${this.p.nObs}, max σ*=${c.maxStd.toFixed(2)}, next query x*=${c.best.x.toFixed(2)}.`; }
 });
+
+/* ================= D2L ch.8-9 — ResNet Residual Skip Highway vs Plain Gradient Flow ================= */
+defLab("d9resnet", {
+  title: "ResNet skip highway: why ∂L/∂x_0 survives 100 layers", tab: "ResNet vs Plain", cam: [[0, 13, 18], [0, 1.8, 0]],
+  how: "Each column is a network layer l = 1 … L from left (input x_0) to right (loss L). The back row is a Plain network h_l = f(h_{l-1}) where the backward gradient multiplies by ∂f/∂h at every step—vanishing to dust when |∂f/∂h| < 1! The front row is a Residual network h_l = h_{l-1} + f(h_{l-1}), where the identity skip arc (green) carries the gradient ∂L/∂h_0 = ∂L/∂h_L · Π(I + ∂f_l/∂h) all the way back to layer 1.",
+  legend: () => `<b>Tower height = backward gradient norm ‖∂L/∂h_l‖</b><div class="row"><span><i class="sw" style="background:var(--c3)"></i>ResNet h + f(h) (front)</span><span><i class="sw" style="background:var(--c1)"></i>Plain f(h) (back)</span><span><i class="sw" style="background:var(--c4)"></i>identity skip arc +I</span></div>`,
+  ctl: [
+    { s: "depth", label: "Network depth L", min: 4, max: 12, step: 1, v: 8, fmt: d => d + " layers" },
+    { s: "jac", label: "Per-layer block Jacobian norm ‖∂f/∂h‖", min: 0.35, max: 0.95, step: 0.05, v: 0.65 },
+    { s: "resScale", label: "Residual branch scale α in h + α·f(h)", min: 0.0, max: 1.0, step: 0.1, v: 0.3 }
+  ],
+  stats: [["gPlain", "Plain layer-1 grad ‖∂L/∂h_1‖"], ["gRes", "ResNet layer-1 grad ‖∂L/∂h_1‖"], ["ratio", "ResNet / Plain survival"]],
+  change() { this.refresh(); },
+  calc() {
+    const L = this.p.depth, J = this.p.jac, a = this.p.resScale;
+    const plain = [], res = [];
+    let gp = 1.0, gr = 1.0;
+    for (let l = L; l >= 1; l--) {
+      plain.unshift({ l, g: gp });
+      res.unshift({ l, g: gr });
+      gp *= J;
+      gr = Math.min(2.2, gr * Math.sqrt(1 + (a * J) * (a * J)));
+    }
+    return { L, plain, res, gPlain: plain[0].g, gRes: res[0].g };
+  },
+  refresh() {
+    const c = this.calc();
+    setS("gPlain", c.gPlain.toFixed(4));
+    setS("gRes", c.gRes.toFixed(3));
+    setS("ratio", (c.gRes / Math.max(1e-6, c.gPlain)).toFixed(1) + "×");
+    labExtra(`<p style="margin:8px 0 0">Across L = ${c.L} layers with ‖∂f/∂h‖ = ${this.p.jac.toFixed(2)}, the plain network shrinks the gradient to ${this.p.jac.toFixed(2)}^${c.L - 1} = <b>${c.gPlain.toFixed(4)}</b>, starving early layers. Adding the identity shortcut h_l = h_{l-1} + α·f(h_{l-1}) multiplies the Jacobian by (I + α·∂f/∂h), keeping layer-1 gradient at <b>${c.gRes.toFixed(3)}</b> (${(c.gRes / Math.max(1e-6, c.gPlain)).toFixed(1)}× stronger, D2L §8.6).</p>`);
+  },
+  draw() {
+    const c = this.calc(), L = c.L, span = 8.4, H = 2.6;
+    for (let i = 0; i < L; i++) {
+      const x = -span / 2 + i * (span / Math.max(1, L - 1));
+      const hp = Math.max(0.08, c.plain[i].g * H), hr = Math.max(0.15, Math.min(5.2, c.res[i].g * H));
+      V.box(x, 0, -1.8, 0.48, hp, 0.48, C.c1, null);
+      V.box(x, 0, 1.8, 0.48, hr, 0.48, C.c3, null);
+      if (i === 0 || i === L - 1) {
+        pin(x, hp + 0.45, -1.8, `Plain L${i + 1}: ${c.plain[i].g.toFixed(2)}`, i === 0 && c.plain[i].g < 0.15 ? "hot" : "flat");
+        pin(x, hr + 0.45, 1.8, `Res L${i + 1}: ${c.res[i].g.toFixed(2)}`, "ok");
+      }
+      if (i > 0) {
+        const xp = -span / 2 + (i - 1) * (span / Math.max(1, L - 1));
+        const xm = 0.5 * (xp + x), ym = Math.max(hr, c.res[i - 1].g * H) + 0.55;
+        Ln.seg(xp, c.res[i - 1].g * H, 1.8, xm, ym, 1.8, C.c4);
+        Ln.seg(xm, ym, 1.8, x, hr, 1.8, C.c4);
+        Ln.seg(xp, c.plain[i - 1].g * H, -1.8, x, hp, -1.8, C.c1);
+      }
+    }
+  },
+  state() { const c = this.calc(); return `ResNet vs Plain lab: L=${c.L}, plain grad=${c.gPlain.toFixed(4)}, ResNet grad=${c.gRes.toFixed(3)}.`; }
+});
