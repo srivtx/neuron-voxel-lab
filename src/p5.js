@@ -129,8 +129,10 @@ function renderChapter(b, n, ch) {
     ${sims.length ? `<div class="block"><h3>Labs for this chapter</h3><div class="btns" style="margin:0">${sims.map(s => `<button type="button" class="btn" data-sim="${s}" aria-pressed="false">${esc(ST[s].isLab ? ST[s].tab : "Station " + s.slice(1) + ": " + ST[s].tab)}</button>`).join("")}</div></div>` : ""}
     <div class="block" id="lab" hidden></div>
     ${secs.length ? `<div><div style="display:flex;justify-content:space-between;align-items:center;margin:6px 0 8px"><h3 style="font:700 18px var(--f-display);margin:0">Sections</h3><button type="button" class="btn small" data-expand-all>Expand all</button></div><div class="secs">${secs.map(s => secCard(b, s, rows)).join("")}</div></div>` : ""}
+    ${quizHTML(key)}
     <div class="block ask" id="chap-ask"></div>
     <div class="btns" style="justify-content:space-between"><button class="btn" type="button" data-step="-1">← Previous chapter</button><button class="btn primary" type="button" data-step="1">Next chapter →</button></div>`;
+  bindQuiz(v);
   const expBtn = v.querySelector("[data-expand-all]");
   if (expBtn) expBtn.onclick = () => {
     const details = [...v.querySelectorAll("details.sec:not(.ex)")];
@@ -159,6 +161,25 @@ function renderChapter(b, n, ch) {
   afterChapter(b, n, v);
 }
 let chapAskSection = null;
+/* self-check quizzes: QUIZ[key] = [[question, [options], correctIndex, explanation], ...] (files in src/quiz/) */
+const QUIZ = {};
+function quizHTML(key) {
+  const q = QUIZ[key]; if (!q || !q.length) return "";
+  return `<div class="block quiz" data-quiz="${key}"><h3>Self-check (${q.length} questions)</h3><p class="note" style="margin:0 0 6px">Answer from memory first; tap an option to see why it is right or wrong. Your score is saved in this browser.</p>${q.map((x, i) => `<div class="qz" data-i="${i}" style="margin:10px 0"><p style="margin:0 0 4px"><b>${i + 1}.</b> ${esc(x[0])}</p><div class="btns" style="margin:0;flex-direction:column;align-items:stretch">${x[1].map((o, j) => `<button type="button" class="btn small" data-j="${j}" style="text-align:left">${esc(o)}</button>`).join("")}</div><p class="note qz-fb" style="margin:4px 0 0;color:var(--ink)" hidden></p></div>`).join("")}<p class="note qz-score" style="margin:8px 0 0"></p></div>`;
+}
+function bindQuiz(root) {
+  const box = root.querySelector(".quiz"); if (!box) return;
+  const key = box.dataset.quiz, q = QUIZ[key], sk = "nvl-quiz-" + key; let done = {};
+  try { done = JSON.parse(localStorage.getItem(sk) || "{}"); } catch (e) { }
+  const score = () => { const n = Object.keys(done).length, r = Object.values(done).filter(Boolean).length; box.querySelector(".qz-score").textContent = n ? `Score: ${r} / ${q.length}${n === q.length ? (r === q.length ? " · perfect, move on" : " · revisit the sections you missed") : ""}` : ""; };
+  const mark = (el, j, auto) => {
+    const i = +el.dataset.i, x = q[i], ok = j === x[2]; if (!auto) { done[i] = ok; try { localStorage.setItem(sk, JSON.stringify(done)); } catch (e) { } }
+    el.querySelectorAll("button").forEach((b, k) => { b.disabled = true; b.style.outline = k === x[2] ? "2px solid var(--c3)" : k === j ? "2px solid var(--c4)" : ""; });
+    const fb = el.querySelector(".qz-fb"); fb.hidden = false; fb.textContent = (ok ? "Correct. " : "Not quite. ") + x[3]; score();
+  };
+  box.querySelectorAll(".qz").forEach(el => { el.querySelectorAll("button").forEach(b => b.onclick = () => mark(el, +b.dataset.j)); });
+  score();
+}
 function secCard(b, s, rows) {
   const e = SEC[b + s[0]], subs = rows.filter(r => r[0].startsWith(s[0] + ".") && r[0].split(".").length === 3), star = /\*\s*$/.test(s[1]), title = s[1].replace(/\s*\*\s*$/, "");
   const ex = /^Exercises|^Summary/.test(title), hasLive = (LIVE_SEC[b + s[0]] || []).length > 0;

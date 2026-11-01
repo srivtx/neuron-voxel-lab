@@ -12,6 +12,8 @@ OUT=../index.html
   cat p2.js p4.js p5easy.js p5.js p6a.js p6b.js p7a.js p7b.js p8.js
   # one file per chapter: src/ch/M15.js, D3.js, A21.js … (each Object.assign()s into CHI / SEC / EASY)
   for f in $(ls ch/*.js 2>/dev/null | sort -V); do printf '\n'; cat "$f"; done
+  # self-check quizzes: src/quiz/*.js (each Object.assign()s into QUIZ)
+  for f in $(ls quiz/*.js 2>/dev/null | sort -V); do printf '\n'; cat "$f"; done
   printf '\n'; cat p9.js
   printf '\nconst PRACTICE = '; cat practice.json; printf ';\n'
   printf '\nTOC = '; cat toc.json; printf ';\n'
