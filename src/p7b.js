@@ -958,3 +958,52 @@ defLab("d10lstm", {
   },
   state() { const { last } = this.calc(); return `LSTM Gates lab: f=${this.p.fg}, i=${this.p.ig}, o=${this.p.og}, c_7=${last.c.toFixed(3)}, rnn_7=${last.r.toFixed(3)}.`; }
 });
+
+/* ================= Murphy 2 ch.21 / D2L ch.20 — VAE Latent Space & β-KL Trade-off ================= */
+defLab("a21vae", {
+  title: "VAE latent space: q_φ(z|x) = N(μ_φ(x), σ²_φ(x)) vs prior N(0, I)", tab: "VAE Latent Space", cam: [[0, 14, 18], [0, 1.8, 0]],
+  how: "Four encoder posteriors q_φ(z|x_k) are shown in 3D latent space around the origin prior N(0, I). Each cluster has a center pillar at μ_φ(x_k) surrounded by reparameterized samples z = μ + σ ⊙ ε. When β (the KL weight in the β-VAE ELBO) is near 0, clusters drift far apart with tiny σ (holes in latent space, deterministic autoencoder). When β is large, posteriors overlap at the origin with σ → 1 (posterior collapse).",
+  legend: () => `<b>4 latent classes around prior N(0, I)</b><div class="row"><span><i class="sw" style="background:var(--c1)"></i>class A</span><span><i class="sw" style="background:var(--c2)"></i>class B</span><span><i class="sw" style="background:var(--c3)"></i>class C</span><span><i class="sw" style="background:var(--c4)"></i>class D</span></div>`,
+  ctl: [
+    { s: "beta", label: "KL weight β in E[log p(x|z)] − β·KL(q‖p)", min: 0.05, max: 3.0, step: 0.05, v: 1.0 },
+    { s: "epsScale", label: "Reparameterization draw scale |ε|", min: 0.2, max: 1.8, step: 0.1, v: 1.0 }
+  ],
+  stats: [["muNorm", "Posterior mean radius ‖μ_φ‖"], ["sigVal", "Posterior std σ_φ"], ["klVal", "KL(q_φ(z|x) ‖ N(0,I))"], ["elbo", "ELBO balance"]],
+  change() { this.refresh(); },
+  calc() {
+    const b = this.p.beta;
+    const r = 3.2 / (1 + 0.85 * b);
+    const sig = clamp(0.18 + 0.58 * (1 - Math.exp(-0.9 * b)), 0.15, 0.98);
+    const kl = 2 * 0.5 * (r * r / 2 + sig * sig - 1 - Math.log(sig * sig));
+    const recon = -0.35 * (sig * sig) - 0.15 * Math.exp(-r);
+    const elbo = recon - b * kl;
+    const dirs = [[1, 1, C.c1, "Class A"], [-1, 1, C.c2, "Class B"], [-1, -1, C.c3, "Class C"], [1, -1, C.c4, "Class D"]];
+    return { r, sig, kl, recon, elbo, dirs };
+  },
+  refresh() {
+    const c = this.calc();
+    setS("muNorm", c.r.toFixed(2));
+    setS("sigVal", c.sig.toFixed(2));
+    setS("klVal", c.kl.toFixed(2) + " nats");
+    setS("elbo", c.elbo.toFixed(2));
+    labExtra(`<p style="margin:8px 0 0">With β = ${this.p.beta.toFixed(2)}, encoder centers sit at radius ‖μ_φ‖ = ${c.r.toFixed(2)} with spread σ_φ = ${c.sig.toFixed(2)} (KL = ${c.kl.toFixed(2)} nats). ${this.p.beta < 0.25 ? "Low β behaves like an unregularized autoencoder: sharp clusters but empty gaps where z ~ N(0,I) decodes to garbage!" : this.p.beta > 2.1 ? "High β causes posterior collapse: q_φ(z|x) ≈ N(0,I) for all inputs, losing class identity!" : "Smooth overlap lets z ~ N(0,I) and linear interpolations decode cleanly across the manifold (Murphy 2 §21.2)."}</p>`);
+  },
+  draw() {
+    const c = this.calc(), es = this.p.epsScale;
+    const offsets = [[1, 0], [-1, 0], [0, 1], [0, -1], [0.7, 0.7], [-0.7, -0.7]];
+    V.box(0, 0, 0, 0.35, 0.45, 0.35, C.c5, null);
+    pin(0, 0.75, 0, "Prior N(0,I)", "flat");
+    for (const [dx, dz, col, name] of c.dirs) {
+      const mx = dx * c.r * 0.707, mz = dz * c.r * 0.707;
+      const h = 1.2 + 1.8 / (c.sig + 0.4);
+      V.box(mx, 0, mz, 0.48, h, 0.48, col, null);
+      pin(mx, h + 0.45, mz, `${name} (σ=${c.sig.toFixed(2)})`, "flat");
+      for (const [ox, oz] of offsets) {
+        const sx = mx + ox * c.sig * es * 1.35, sz = mz + oz * c.sig * es * 1.35;
+        V.box(sx, 0, sz, 0.24, h * 0.55, 0.24, col, null);
+        Ln.seg(mx, h * 0.5, mz, sx, h * 0.3, sz, col);
+      }
+    }
+  },
+  state() { const c = this.calc(); return `VAE Latent Space lab: β=${this.p.beta}, ‖μ‖=${c.r.toFixed(2)}, σ=${c.sig.toFixed(2)}, KL=${c.kl.toFixed(2)} nats.`; }
+});
