@@ -158,13 +158,16 @@ const PATHS = [
       ["Vision", [
         ["ch", "D7", "D2L ch. 7 · CNNs", "Convolution in PyTorch."],
         ["ch", "D8", "D2L ch. 8 · modern CNNs", "AlexNet → ResNet → beyond."],
+        ["lab", "D8/d9resnet", "Lab · ResNet skip highway vs plain gradient flow in 3D", "Watch backward gradients vanish in a plain stack while surviving along identity skip connections."],
         ["ch", "D14", "D2L ch. 14 · computer vision", "Augmentation, fine-tuning, detection, segmentation."]]],
       ["Sequences and attention", [
         ["ch", "D9", "D2L ch. 9 · RNNs", "Memory through recurrence."],
         ["ch", "D10", "D2L ch. 10 · modern RNNs", "LSTM, GRU, seq2seq."],
+        ["lab", "D10/d10lstm", "Lab · LSTM cell-state conveyor & gates in 3D", "Control forget, input and output gates to preserve long-range memory."],
         ["ch", "D11", "D2L ch. 11 · attention and transformers", "The architecture behind LLMs."],
         ["lab", "D11/m15attn", "Lab · self-attention & multi-head routing in 3D", "Inspect query-key compatibility, causal masking and head specialisation."],
         ["ex", "15.1", "Exercise · scaled dot-product & causal attention", "Build bidirectional and autoregressive attention matrices in NumPy."],
+        ["pj", "p8", "Project · a tiny Transformer from scratch", "Sinusoidal positional encodings, attention backward + gradient check, and associative key-value lookup."],
         ["ch", "D15", "D2L ch. 15 · NLP pretraining", "word2vec to BERT."]]],
       ["Training well", [
         ["ch", "D12", "D2L ch. 12 · optimisation algorithms", "SGD, momentum, Adam, schedules."],
@@ -187,20 +190,26 @@ const PATHS = [
         ["ex", "A12.1", "Exercise · Metropolis–Hastings on a bimodal posterior", "Sample without knowing the normalising constant Z."]]],
       ["Bayesian prediction", [
         ["ch", "A17", "Murphy 2 ch. 17 · Bayesian neural networks", "Uncertainty for deep nets."],
-        ["ch", "A18", "Murphy 2 ch. 18 · Gaussian processes", "Distributions over functions."]]],
+        ["ch", "A18", "Murphy 2 ch. 18 · Gaussian processes", "Distributions over functions."],
+        ["lab", "A18/m16gp", "Lab · GP posterior tube & BayesOpt UCB in 3D", "See uncertainty pinch at data points and guide Bayesian optimisation queries."]]],
       ["Generative models", [
         ["ch", "A20", "Murphy 2 ch. 20 · generative models overview", "What 'generate' means."],
         ["ch", "A21", "Murphy 2 ch. 21 · VAEs", "Autoencoders with a probabilistic latent."],
+        ["lab", "A21/a21vae", "Lab · VAE latent space & β-KL trade-off in 3D", "Explore reparameterised encoder clouds around the N(0,I) prior."],
+        ["pj", "p9", "Project · a Variational Autoencoder (VAE) from scratch", "Reparameterisation trick, closed-form KL, gradient check and 2D latent manifold generation."],
         ["ch", "A22", "Murphy 2 ch. 22 · autoregressive models", "One token at a time."],
         ["ch", "A23", "Murphy 2 ch. 23 · normalizing flows", "Invertible transforms of noise."],
+        ["lab", "A23/a23flow", "Lab · normalizing flow coupling & Jacobian warp in 3D", "Watch invertible coupling layers stretch volume and track exact density."],
         ["ch", "A25", "Murphy 2 ch. 25 · diffusion models", "Learn to undo noise."],
         ["lab", "A25/a25diff", "Lab · diffusion forward noising & reverse score in 3D", "Corrupt a 2-D manifold into Gaussian noise and follow score arrows back."],
         ["ex", "A25.1", "Exercise · DDPM forward jump & score denoising", "Verify the closed-form √ᾱₜ x₀ + √(1−ᾱₜ) ε jump."],
-        ["ch", "A26", "Murphy 2 ch. 26 · GANs", "Generator vs critic."]]],
+        ["ch", "A26", "Murphy 2 ch. 26 · GANs", "Generator vs critic."],
+        ["lab", "A26/a26gan", "Lab · GAN minimax surface & mode collapse in 3D", "Compare balanced 4-mode coverage against mode collapse on D*(x)."]]],
       ["Acting and explaining", [
         ["ch", "A34", "Murphy 2 ch. 34 · decision making under uncertainty", "Bandits and beyond."],
         ["ch", "A35", "Murphy 2 ch. 35 · reinforcement learning", "Learning from reward."],
         ["lab", "A35/a35rl", "Lab · MDP gridworld & Bellman backups in 3D", "Watch state values V(s) and optimal policy arrows propagate from the goal."],
+        ["pj", "p10", "Project · an RL agent: Bellman, Q-learning & Actor-Critic", "Solve a stochastic cliff-gridworld with exact DP, tabular Q-learning and TD(0) Actor-Critic."],
         ["ch", "A36", "Murphy 2 ch. 36 · causality", "From correlation to intervention."],
         ["lab", "A36/a36causal", "Lab · seeing vs doing: P(Y|X) vs P(Y|do(X)) in 3D", "See Simpson's paradox in 3D and fix confounding with backdoor adjustment."],
         ["ex", "A36.1", "Exercise · backdoor adjustment & IPW from scratch", "Recover the true causal treatment effect under strong confounding."]]]
