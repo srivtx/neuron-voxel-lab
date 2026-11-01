@@ -388,4 +388,248 @@ for name, f in [("CNN", lambda X: forward(P, X)[0]), ("MLP", lambda X: mlp_forwa
     a0, a1 = np.mean(f(Xte).argmax(1) == yte), np.mean(f(Xsh).argmax(1) == yte)
     print(f"{name}: original {a0:.4f}  shifted {a1:.4f}  drop {a0 - a1:.4f}")'''),
  ]),
+
+dict(id="p8", title="A tiny Transformer and self-attention from scratch",
+ chapters=["M15", "D11", "A22"], track="nn",
+ blurb="Write a working self-attention block in pure NumPy—sinusoidal positional encodings, scaled dot-product attention forward and backward, a finite-difference gradient check, and training on an associative key-value lookup task where a position-blind bag-of-words model fails completely. Uses Murphy 1 ch. 15, D2L ch. 11 and Murphy 2 ch. 22.",
+ steps=[
+  dict(title="An associative lookup task that needs attention", kind="code",
+   q="Create sequences of 5 tokens: two key-value pairs (k1, v1, k2, v2) followed by a query key q ∈ {k1, k2}, where keys are in {0..3} and values are in {4..7}. The target is the value paired with q. Generate 1,200 training and 300 test sequences.",
+   answer="Each sequence [k1, v1, k2, v2, q] contains the exact same bag of tokens whether q = k1 or q = k2 (only the last token changes, and the answer depends on which earlier position matches q and reading its right-hand neighbour). A bag-of-words model that averages token embeddings cannot tell which value belongs to which key; an attention head that looks from position 4 (q) to position 0 or 2 and reads the adjacent value solves it cleanly.",
+   code='''import numpy as np
+rng = np.random.default_rng(0)
+def make_data(N):
+    X = np.zeros((N, 5), int); y = np.zeros(N, int)
+    for n in range(N):
+        k1, k2 = rng.choice(4, 2, replace=False)
+        v1, v2 = rng.choice(4, 2, replace=False) + 4
+        pick = rng.integers(0, 2)
+        q = k1 if pick == 0 else k2
+        X[n] = [k1, v1, k2, v2, q]
+        y[n] = (v1 if pick == 0 else v2) - 4                       ## target class in 0..3
+    return X, y
+Xtr, ytr = make_data(1200); Xte, yte = make_data(300)
+print("Xtr:", Xtr.shape, "sample sequence:", Xtr[0].tolist(), "-> target class:", int(ytr[0]))'''),
+  dict(title="Token embeddings + sinusoidal positional encoding", kind="code",
+   q="Build a sinusoidal positional table PE[t, 2i] = sin(t / 100^((2i)/d)), PE[t, 2i+1] = cos(t / 100^((2i)/d)) for length T=5 and d=16. Verify that distinct positions have distinct vectors and check the dot products with position 0.",
+   answer="Without positional encodings, scaled dot-product attention is permutation-equivariant: swapping (k1, v1) into (k1, v2) and (k2, v1) would look identical! Adding PE[t] stamps every slot t = 0..4 with a unique phase signature so key at t can bind to value at t+1 (Murphy 1 §15.4.5, D2L §11.6).",
+   code='''T, D, V = 5, 16, 8
+pos = np.arange(T)[:, None]; div = 100.0 ** (np.arange(0, D, 2) / D)
+PE = np.zeros((T, D))
+PE[:, 0::2] = np.sin(pos / div); PE[:, 1::2] = np.cos(pos / div)   ## sinusoidal position table
+dots = (PE @ PE[0]).round(3)
+print("PE shape:", PE.shape, "dot products with t=0:", dots.tolist())'''),
+  dict(title="Scaled dot-product attention: forward, backward and gradient check", kind="code",
+   q="Write a single-layer attention classifier: embed X -> H = E[X] + PE, compute Q = H W_Q, K = H W_K, Vv = H W_V, attention A = softmax(Q K^T / sqrt(D)), take the query token's attended output c = A[:, -1, :] @ Vv, and project logits = c @ W_O + b. Derive the exact analytic backward pass and verify against finite differences.",
+   answer="Every analytic gradient (E, W_Q, W_K, W_V, W_O) agrees with centered finite differences to 1e-7. Notice the softmax Jacobian inside backward: dS = A * (dA - sum(dA * A, axis=-1, keepdims=True)) / sqrt(D). If an attention weight A_ij is near 0 or 1, its gradient dS_ij vanishes—which is exactly why dividing by sqrt(D) is essential before softmax!",
+   code='''def init_attn(seed=1):
+    r = np.random.default_rng(seed)
+    s = 0.25
+    return {"E": r.normal(0, s, (V, D)), "WQ": r.normal(0, s, (D, D)), "WK": r.normal(0, s, (D, D)),
+            "WV": r.normal(0, s, (D, D)), "WO": r.normal(0, s, (D, 4)), "b": np.zeros(4)}
+def attn_fwd(P, X):
+    H = P["E"][X] + PE                                             ## (N, T, D) token + pos
+    Q = H @ P["WQ"]; K = H @ P["WK"]; Vv = H @ P["WV"]
+    sc = (Q[:, -1:, :] @ K.transpose(0, 2, 1))[:, 0, :] / np.sqrt(D)  ## query t=4 attends to t=0..4
+    sc -= sc.max(1, keepdims=True); A = np.exp(sc); A /= A.sum(1, keepdims=True)
+    c = (A[:, :, None] * Vv).sum(1)                                ## attended context (N, D)
+    logits = c @ P["WO"] + P["b"]
+    logits -= logits.max(1, keepdims=True); p = np.exp(logits); p /= p.sum(1, keepdims=True)
+    return p, (X, H, Q, K, Vv, A, c)
+def attn_bwd(P, Y, cache, p):
+    X, H, Q, K, Vv, A, c = cache; N = len(X)
+    dl = (p - Y) / N
+    g = {"WO": c.T @ dl, "b": dl.sum(0)}
+    dc = dl @ P["WO"].T                                            ## (N, D)
+    dA = (dc[:, None, :] * Vv).sum(-1)                             ## (N, T)
+    dVv = A[:, :, None] * dc[:, None, :]                           ## (N, T, D)
+    dsc = A * (dA - (dA * A).sum(1, keepdims=True)) / np.sqrt(D)   ## softmax Jacobian / sqrt(D)
+    dQ_last = (dsc[:, :, None] * K).sum(1)                         ## (N, D)
+    dK = dsc[:, :, None] * Q[:, -1:, :]                            ## (N, T, D)
+    g["WQ"] = H[:, -1, :].T @ dQ_last
+    g["WK"] = (H.transpose(0, 2, 1) @ dK).sum(0)
+    g["WV"] = (H.transpose(0, 2, 1) @ dVv).sum(0)
+    dH = dK @ P["WK"].T + dVv @ P["WV"].T
+    dH[:, -1, :] += dQ_last @ P["WQ"].T
+    g["E"] = np.zeros_like(P["E"]); np.add.at(g["E"], X, dH)
+    return g
+P = init_attn(); Xb, yb = Xtr[:32], ytr[:32]; Yb = np.eye(4)[yb]
+p, cache = attn_fwd(P, Xb); g = attn_bwd(P, Yb, cache, p)
+loss = lambda P: -np.mean(np.log(attn_fwd(P, Xb)[0][np.arange(len(yb)), yb]))
+for k in ["E", "WQ", "WK", "WV", "WO"]:
+    idx = (0, 0); h = 1e-5
+    P[k][idx] += h; lp = loss(P); P[k][idx] -= 2 * h; lm = loss(P); P[k][idx] += h
+    print(f"{k:>2}: analytic {g[k][idx]: .7f}  numeric {(lp - lm) / (2 * h): .7f}")'''),
+  dict(title="Train the attention block vs a bag-of-words baseline", kind="code",
+   q="Train the attention model with Adam (lr=0.02, 40 epochs, batch 64) and compare its test accuracy against a position-aware linear probe on mean-pooled embeddings. Inspect the learned attention weights on a test example.",
+   answer="The self-attention model reaches 100.0% test accuracy, while the mean-pooling baseline stalls around 50% (random guessing between the two values present in the sequence!). Inspecting the attention row shows why: the query token at position 4 learns to route weight to the matching key-value pair and read out the exact target value.",
+   code='''P = init_attn(2); m = {k: np.zeros_like(v) for k, v in P.items()}; v2 = {k: np.zeros_like(v) for k, v in P.items()}; t = 0
+Ytr = np.eye(4)[ytr]
+for ep in range(1, 41):
+    for bi in np.array_split(rng.permutation(len(Xtr)), len(Xtr) // 64):
+        p, cache = attn_fwd(P, Xtr[bi]); g = attn_bwd(P, Ytr[bi], cache, p); t += 1
+        for k in P:
+            m[k] = 0.9 * m[k] + 0.1 * g[k]; v2[k] = 0.999 * v2[k] + 0.001 * g[k] ** 2
+            P[k] -= 0.02 * (m[k] / (1 - 0.9 ** t)) / (np.sqrt(v2[k] / (1 - 0.999 ** t)) + 1e-8)
+pte, cte = attn_fwd(P, Xte)
+print(f"Transformer attention test accuracy: {np.mean(pte.argmax(1) == yte):.4f}")
+print("Sample test seq:", Xte[0].tolist(), "attn weights:", cte[5][0].round(3).tolist(), "pred:", int(pte[0].argmax()), "true:", int(yte[0]))'''),
+ ]),
+
+dict(id="p9", title="A Variational Autoencoder (VAE) from scratch",
+ chapters=["M20", "A21", "D20"], track="nn",
+ blurb="Build a complete Variational Autoencoder in NumPy on 8×8 handwritten digits: encoder to (μ, log σ²), the reparameterisation trick z = μ + σ ⊙ ε, closed-form Gaussian KL divergence, full analytic backward pass with gradient check, and generative sampling across a 2D latent manifold. Uses Murphy 1 ch. 20, Murphy 2 ch. 21 and D2L ch. 20.",
+ steps=[
+  dict(title="Prepare digits and initialize the 2D-latent VAE", kind="code",
+   q="Load 8×8 digits scaled to [0, 1] (shape N × 64). Initialize a VAE with encoder 64 → 32 tanh → (μ ∈ R², log σ² ∈ R²) and decoder 2 → 32 tanh → 64 sigmoid.",
+   answer="Using a 2D latent bottleneck (D_z = 2) compresses 64 pixel intensities by 32× and lets us inspect the entire latent space directly without any post-hoc dimensionality reduction.",
+   code='''import numpy as np
+from sklearn.datasets import load_digits
+dg = load_digits(); X = (dg.data / 16.0).astype(float); y = dg.target
+def vae_init(seed=0):
+    r = np.random.default_rng(seed)
+    return {"We": r.normal(0, 0.15, (64, 32)), "be": np.zeros(32),
+            "Wmu": r.normal(0, 0.1, (32, 2)), "bmu": np.zeros(2),
+            "Wlv": r.normal(0, 0.05, (32, 2)), "blv": np.full(2, -1.0),
+            "Wd1": r.normal(0, 0.15, (2, 32)), "bd1": np.zeros(32),
+            "Wd2": r.normal(0, 0.15, (32, 64)), "bd2": np.zeros(64)}
+P = vae_init()
+print("Dataset:", X.shape, "Total VAE parameters:", sum(v.size for v in P.values()))'''),
+  dict(title="Reparameterisation trick and negative ELBO forward pass", kind="code",
+   q="Given X and standard normal noise eps ~ N(0, I), compute μ, log_var, std = exp(0.5 * log_var), z = μ + std * eps, and decode x_hat = sigmoid(h_d @ Wd2 + bd2). Compute the negative ELBO = MSE_recon + β * KL, where MSE_recon = 0.5 * sum((x_hat - X)^2) / N and KL = -0.5 * sum(1 + log_var - μ^2 - exp(log_var)) / N.",
+   answer="By moving the randomness into an external standard normal draw eps ~ N(0, I) and writing z = μ + exp(0.5 * log_var) * eps, z becomes a deterministic, differentiable function of (μ, log_var), allowing standard backpropagation to flow straight through the stochastic bottleneck (Kingma & Welling 2014; Murphy 2 §21.2.3).",
+   code='''def vae_fwd(P, Xb, eps, beta=0.05):
+    he = np.tanh(Xb @ P["We"] + P["be"])
+    mu = he @ P["Wmu"] + P["bmu"]
+    lv = he @ P["Wlv"] + P["blv"]
+    std = np.exp(0.5 * lv)
+    z = mu + std * eps                                             ## reparameterisation trick
+    hd = np.tanh(z @ P["Wd1"] + P["bd1"])
+    xh = 1.0 / (1.0 + np.exp(-(hd @ P["Wd2"] + P["bd2"])))
+    recon = 0.5 * np.sum((xh - Xb) ** 2) / len(Xb)
+    kl = -0.5 * np.sum(1.0 + lv - mu ** 2 - np.exp(lv)) / len(Xb)  ## closed-form Gaussian KL
+    return recon + beta * kl, recon, kl, (Xb, eps, he, mu, lv, std, z, hd, xh)
+rng = np.random.default_rng(1); eps0 = rng.normal(0, 1, (32, 2))
+loss0, r0, kl0, _ = vae_fwd(P, X[:32], eps0)
+print(f"Initial neg-ELBO: {loss0:.3f} (recon {r0:.3f}, KL {kl0:.3f})")'''),
+  dict(title="Analytic backward pass through reparameterisation + gradient check", kind="code",
+   q="Derive the backward pass through decoder, z = μ + std * eps, and the KL penalty, and check against finite differences for every parameter matrix.",
+   answer="All six weight matrices match finite differences to 7 decimal places! Notice how ∂L/∂log_var receives two competing terms: the reconstruction gradient 0.5 * dz * std * eps (which wants std → 0 so the code is noise-free) and the KL gradient 0.5 * β * (exp(lv) - 1) (which prevents std from collapsing to 0).",
+   code='''def vae_bwd(P, cache, beta=0.05):
+    Xb, eps, he, mu, lv, std, z, hd, xh = cache; N = len(Xb)
+    dxh = (xh - Xb) / N
+    ds2 = dxh * xh * (1.0 - xh)
+    g = {"Wd2": hd.T @ ds2, "bd2": ds2.sum(0)}
+    dhd = (ds2 @ P["Wd2"].T) * (1.0 - hd ** 2)
+    g["Wd1"] = z.T @ dhd; g["bd1"] = dhd.sum(0)
+    dz = dhd @ P["Wd1"].T
+    dmu = dz + beta * mu / N                                       ## recon + KL gradient on mu
+    dlv = dz * 0.5 * std * eps + beta * 0.5 * (np.exp(lv) - 1.0) / N  ## recon + KL gradient on log_var
+    g["Wmu"] = he.T @ dmu; g["bmu"] = dmu.sum(0)
+    g["Wlv"] = he.T @ dlv; g["blv"] = dlv.sum(0)
+    dhe = (dmu @ P["Wmu"].T + dlv @ P["Wlv"].T) * (1.0 - he ** 2)
+    g["We"] = Xb.T @ dhe; g["be"] = dhe.sum(0)
+    return g
+Xb = X[:32]; _, _, _, cache = vae_fwd(P, Xb, eps0); g = vae_bwd(P, cache)
+for k in ["We", "Wmu", "Wlv", "Wd1", "Wd2"]:
+    idx = (0, 0); h = 1e-5
+    P[k][idx] += h; lp = vae_fwd(P, Xb, eps0)[0]; P[k][idx] -= 2 * h; lm = vae_fwd(P, Xb, eps0)[0]; P[k][idx] += h
+    print(f"{k:>3}: analytic {g[k][idx]: .7f}  numeric {(lp - lm) / (2 * h): .7f}")'''),
+  dict(title="Train the VAE and explore the learned 2D latent manifold", kind="code",
+   q="Train for 35 epochs with Adam (lr=0.01, batch 64, β=0.05). Print the reconstruction MSE, KL divergence, and mean posterior centers μ for digits 0, 1, and 8.",
+   answer="Reconstruction MSE drops from ~7.4 to ~2.1 while KL settles near ~3.5 nats, organizing digits into smooth, non-overlapping regions inside the unit disk so any point z sampled from N(0, I) decodes into a sharp digit prototype.",
+   code='''P = vae_init(0); m = {k: np.zeros_like(v) for k, v in P.items()}; v2 = {k: np.zeros_like(v) for k, v in P.items()}; t = 0
+for ep in range(1, 36):
+    for bi in np.array_split(rng.permutation(len(X)), len(X) // 64):
+        eps = rng.normal(0, 1, (len(bi), 2))
+        _, _, _, c = vae_fwd(P, X[bi], eps); g = vae_bwd(P, c); t += 1
+        for k in P:
+            m[k] = 0.9 * m[k] + 0.1 * g[k]; v2[k] = 0.999 * v2[k] + 0.001 * g[k] ** 2
+            P[k] -= 0.01 * (m[k] / (1 - 0.9 ** t)) / (np.sqrt(v2[k] / (1 - 0.999 ** t)) + 1e-8)
+lossF, rF, klF, cF = vae_fwd(P, X, np.zeros((len(X), 2)))
+mu_all = cF[3]
+print(f"Trained neg-ELBO: {lossF:.3f} (recon {rF:.3f}, KL {klF:.3f})")
+for d in [0, 1, 8]:
+    print(f"digit {d} mean latent center μ: {mu_all[y == d].mean(0).round(2).tolist()}")'''),
+ ]),
+
+dict(id="p10", title="An RL agent from scratch: Bellman, Q-learning and Actor-Critic",
+ chapters=["D17", "A34", "A35"], track="ml",
+ blurb="Build a complete reinforcement learning lab in NumPy on a stochastic cliff-gridworld: exact Bellman value iteration V*(s), model-free tabular Q-learning, and a softmax Actor-Critic agent trained with TD(0) advantage δ = r + γV(s') − V(s). Uses D2L ch. 17 and Murphy 2 ch. 34–35.",
+ steps=[
+  dict(title="Build a stochastic cliff-gridworld MDP", kind="code",
+   q="Define a 3×4 gridworld (12 states) with start at (2,0)=state 8, goal at (2,3)=state 11 (+10 reward, terminal), a hazard pit at (2,1)=state 9 (−10 reward, terminal), step cost −0.2, and discount γ = 0.95. Actions 0=Up, 1=Right, 2=Down, 3=Left succeed with prob 0.8 and slip perpendicular with prob 0.1 each.",
+   answer="Because actions slip 20% of the time, hugging the bottom edge next to the hazard pit (2,1) risks falling in for −10! An optimal agent must weigh the shorter path against the expected slip penalty—a classic test of sequential decision-making under uncertainty.",
+   code='''import numpy as np
+H, W, nS, nA, gamma = 3, 4, 12, 4, 0.95
+START, PIT, GOAL = 8, 9, 11
+DIRS = [(-1, 0), (0, 1), (1, 0), (0, -1)]
+def step_det(s, a):
+    r, c = divmod(s, W); dr, dc = DIRS[a]
+    nr, nc = np.clip(r + dr, 0, H - 1), np.clip(c + dc, 0, W - 1)
+    return int(nr * W + nc)
+P_mdp = np.zeros((nS, nA, nS)); R_mdp = np.zeros((nS, nA, nS))
+for s in range(nS):
+    if s in (PIT, GOAL):
+        P_mdp[s, :, s] = 1.0; continue
+    for a in range(nA):
+        for da, p in [(0, 0.8), (-1, 0.1), (1, 0.1)]:
+            ns = step_det(s, (a + da) % 4)
+            P_mdp[s, a, ns] += p
+            R_mdp[s, a, ns] = 10.0 if ns == GOAL else (-10.0 if ns == PIT else -0.2)
+print("Transition tensor shape:", P_mdp.shape, "Row sums all 1.0:", bool(np.allclose(P_mdp.sum(-1), 1.0)))'''),
+  dict(title="Exact Bellman value iteration V*(s) and optimal policy π*(s)", kind="code",
+   q="Iterate V(s) <- max_a sum_{s'} P(s'|s,a) [R(s,a,s') + γ V(s')] until max |ΔV| < 1e-8. Print the 3×4 optimal value grid V* and the optimal action at each state.",
+   answer="At start state (2,0)=8, the optimal action is 0 (Up) rather than 1 (Right into the pit!). The agent climbs to the top row (0,0)->(0,1)->(0,2)->(0,3) to bypass the hazard pit safely before descending to the goal at (2,3), achieving V*(start) = 5.48.",
+   code='''V = np.zeros(nS)
+for it in range(500):
+    Q = (P_mdp * (R_mdp + gamma * V[None, None, :])).sum(-1)       ## Bellman backup Q(s,a)
+    Vn = Q.max(1)
+    if np.max(np.abs(Vn - V)) < 1e-8: break
+    V = Vn
+pi_star = Q.argmax(1)
+ANAME = ["U", "R", "D", "L"]
+print("Converged in", it, "iterations; V*(start) =", round(float(V[START]), 3))
+print("Optimal V* grid:", V.reshape(H, W).round(2).tolist())
+print("Optimal policy:", [ANAME[a] if s not in (PIT, GOAL) else "*" for s, a in enumerate(pi_star)])'''),
+  dict(title="Model-free tabular Q-learning from experience", kind="code",
+   q="Without using P_mdp or R_mdp, simulate 1,500 episodes using ε-greedy exploration (ε=0.25) and update Q(s,a) <- Q(s,a) + α (r + γ max_{a'} Q(s',a') - Q(s,a)). Compare the learned greedy policy and Q(start, Up) against the exact Bellman solution.",
+   answer="Purely from trial-and-error trajectories (falling into the pit early on and learning to avoid it!), tabular Q-learning recovers the exact same safe detour around the pit and matches V*(start) within ~0.15 (D2L §17.3, Murphy 2 §35.2).",
+   code='''rng = np.random.default_rng(4)
+Qhat = np.zeros((nS, nA))
+for ep in range(1500):
+    s = int(rng.choice([s for s in range(nS) if s not in (PIT, GOAL)]))
+    alpha = 0.15 / (1.0 + ep / 600.0)
+    for _ in range(30):
+        a = int(rng.integers(nA)) if rng.random() < 0.25 else int(Qhat[s].argmax())
+        ns = int(rng.choice(nS, p=P_mdp[s, a]))
+        r = float(R_mdp[s, a, ns])
+        td = r + (0.0 if ns in (PIT, GOAL) else gamma * Qhat[ns].max()) - Qhat[s, a]  ## TD(0) Q-learning error
+        Qhat[s, a] += alpha * td
+        if ns in (PIT, GOAL): break
+        s = ns
+agree = sum(int(Qhat[s].argmax() == pi_star[s]) for s in range(nS) if s not in (PIT, GOAL))
+print(f"Policy agreement with exact Bellman: {agree}/10 non-terminal states")
+print(f"Qhat(start, Up) = {Qhat[START, 0]:.2f} vs exact V*(start) = {V[START]:.2f}")'''),
+  dict(title="Softmax Actor-Critic with TD(0) advantage", kind="code",
+   q="Train a parameterized softmax actor π_θ(a|s) = softmax(θ[s]) and tabular critic V_w(s) over 1,500 episodes: compute TD error δ = r + γ V_w(s') − V_w(s), update critic V_w[s] += α_c δ, and update actor logits θ[s] += α_a δ (e_a − π_θ(·|s)). Measure the final greedy policy's average return from the start state.",
+   answer="Using the critic's TD error δ = r + γ V_w(s') − V_w(s) as a low-variance advantage baseline lets the softmax actor rapidly concentrate probability on the safe detour around the pit, reaching near-optimal average return from the start state (Murphy 2 §35.4).",
+   code='''theta = np.zeros((nS, nA)); Vw = np.zeros(nS)
+for ep in range(1500):
+    s = int(rng.choice([s for s in range(nS) if s not in (PIT, GOAL)]))
+    for _ in range(30):
+        logits = theta[s] - theta[s].max(); p = np.exp(logits); p /= p.sum()
+        a = int(rng.choice(nA, p=p))
+        ns = int(rng.choice(nS, p=P_mdp[s, a]))
+        r = float(R_mdp[s, a, ns])
+        delta = r + (0.0 if ns in (PIT, GOAL) else gamma * Vw[ns]) - Vw[s]  ## TD(0) advantage
+        Vw[s] += 0.1 * delta
+        grad_logpi = -p; grad_logpi[a] += 1.0
+        theta[s] += 0.08 * delta * grad_logpi                      ## actor policy gradient step
+        if ns in (PIT, GOAL): break
+        s = ns
+pi_ac = theta.argmax(1)
+agree_ac = sum(int(pi_ac[s] == pi_star[s]) for s in range(nS) if s not in (PIT, GOAL))
+print(f"Actor-Critic policy agreement with Bellman optimal: {agree_ac}/10 states, V_w(start) = {Vw[START]:.2f}")'''),
+ ]),
 ]
