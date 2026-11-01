@@ -54,10 +54,10 @@ Then go deeper           Deep learning in practice (D2L, PyTorch) ─ Probabilis
 |---|---|---|---|
 | **Neural networks by building** (start here for deep learning) | Anyone who can write a Python loop | 30 | A neural net, backprop, a CNN and an autoencoder, each written from scratch |
 | **Statistics and probability for ML** | Anyone who wants to know when a result is real | 29 | An A/B test done six ways, a calibrated medical classifier, and a clear grasp of p-values vs posteriors |
-| **Classical ML toolkit** | Those who know what a gradient is | 29 | Regression, classification, SVMs, trees, regularisation and clustering, each built once |
+| **Classical ML toolkit** | Those who know what a gradient is | 30 | Regression, classification, SVMs, trees, GPs, regularisation and clustering, each built once |
 | **The maths underneath** | Anyone whose eyes glaze at equations | 17 | Σ, slopes, gradients, matrices, SVD and optimisation, each tied to a picture |
-| **Deep learning with D2L** | Those who have built a net from scratch | 18 | Modern CNNs, RNNs, attention and transformers in PyTorch |
-| **Probabilistic and generative** | Those who have done the stats and neural-net paths | 22 | Kalman filters, VI, MCMC, GPs, Bayesian DL, VAEs, flows, diffusion, RL and causality |
+| **Deep learning with D2L** | Those who have built a net from scratch | 21 | Modern CNNs (ResNet), RNNs (LSTM), attention and a mini-Transformer built from scratch |
+| **Probabilistic and generative** | Those who have done the stats and neural-net paths | 27 | Kalman filters, VI, MCMC, GPs, Bayesian DL, VAEs, flows, GANs, diffusion, RL and causality |
 
 ## Features
 
@@ -75,13 +75,13 @@ Then go deeper           Deep learning in practice (D2L, PyTorch) ─ Probabilis
 <td><img src="docs/screens/practice.png" alt="Exercises with hints and worked answers"></td>
 </tr>
 <tr>
-<td><b>Voxel labs</b>: 10 build-a-network stations and 23 chapter labs (three.js). Examples: Bayes' rule on 2,000 people, the CLT, bootstrap, ROC curves, SVD, LDA vs QDA, ridge vs lasso, k-means, multi-head attention, kernel SVM, decision trees, Kalman filtering, HMC/MCMC, diffusion (DDPM), actor-critic RL and causal do-calculus.</td>
+<td><b>Voxel labs</b>: 10 build-a-network stations and 29 chapter labs (three.js). Examples: Bayes' rule on 2,000 people, the CLT, bootstrap, ROC curves, SVD, LDA vs QDA, ridge vs lasso, k-means, multi-head attention, GP & BayesOpt UCB, kernel SVM, decision trees, ResNet skip highway, LSTM memory cell, Kalman filtering, HMC/MCMC, VAE latent manifold, Normalising Flows, diffusion (DDPM), GAN minimax, actor-critic RL and causal do-calculus.</td>
 <td><b>Practice</b>: 74 exercises across Murphy 1 (ch. 1–23), D2L and Murphy 2, in three kinds: <i>think</i>, <i>derive by hand</i> and <i>code</i>. Each has a hint, a hidden worked answer and a solution. Every solution is executed at build time, and the real output is shown.</td>
 </tr>
 </table>
 
-- **Easy layer first.** Every explained section opens with a one-line plain-English version, then the precise one, plus worked numerical examples, NumPy/PyTorch snippets and subsection notes.
-- **7 build projects** with milestones, questions, starter code and full solutions. Every number in an answer comes from running the solution:
+- **Easy layer first.** Every explained section opens with a one-line plain-English version, then the precise one, plus **90 worked numerical examples**, **81 runnable NumPy/PyTorch snippets** (spanning every single chapter across all three books) and subsection notes.
+- **10 build projects** with milestones, questions, starter code and full solutions. Every number in an answer comes from running the solution:
 
   | # | Project | Track | What you build |
   |---|---|---|---|
@@ -92,8 +92,11 @@ Then go deeper           Deep learning in practice (D2L, PyTorch) ─ Probabilis
   | 5 | Diagnose from measurements: generative vs discriminative | Stats | Naive Bayes, LDA and logistic regression on breast-cancer data; AUC, calibration, a 10:1 cost-weighted decision rule, learning curves |
   | 6 | Find groups without labels | ML | k-means and a full-covariance GMM fitted by EM; rediscover the iris species (purity 0.97); choose K with BIC |
   | 7 | A convolutional network from scratch | NN | im2col convolution, max-pool backward, a gradient check, CNN vs a same-size MLP, and a one-pixel-shift robustness test |
+  | 8 | A tiny Transformer and self-attention from scratch | NN | Scaled dot-product attention, causal masking, sinusoidal positional encodings, and a multi-head Transformer trained on associative recall |
+  | 9 | A Variational Autoencoder (VAE) from scratch | Gen | Reparameterisation trick, exact analytical KL, β-VAE rate–distortion sweep, and smooth 2-D latent manifold interpolation |
+  | 10 | An RL agent from scratch: Bellman, Q-learning and Actor-Critic | RL | Exact Bellman value iteration, tabular ε-greedy Q-learning on a 4×4 cliff gridworld, and a softmax Actor-Critic with advantage baseline |
 
-- **Colab notebooks**, one per practiced chapter plus one per project (40 in all). Solutions are hidden in collapsed cells, and they run on any Colab runtime (an L4 GPU is not required for the practice sets).
+- **Colab notebooks**, one per practiced chapter plus one per project (43 in all). Solutions are hidden in collapsed cells, and they run on any Colab runtime (an L4 GPU is not required for the practice sets).
 - **Symbols decoder**: the 54 symbols the books are written in, each with its name, meaning and an example.
 - **"Why so many equations?"**: six equations that carry most of deep learning, each linked to the station where you can see it.
 - **Custom-designed controls**: no native dropdowns or default form widgets anywhere; sliders, toggles, segmented buttons and pickers are all styled to the theme. Dark (chalk on slate) and light (graph paper) themes follow your OS.
@@ -284,9 +287,9 @@ The key is the book letter (`M` = Murphy 1, `D` = D2L, `A` = Murphy 2) plus the 
 │   ├── exercises.py         # 55 exercises for Murphy 1 ch. 1–14
 │   ├── exercises_more.py    # 19 exercises for Murphy 1 ch. 15–23, D2L and Murphy 2
 │   ├── projects.py          # projects 1–3
-│   ├── projects_more.py     # projects 4–7 (stats, decisions, clustering, CNN)
+│   ├── projects_more.py     # projects 4–10 (stats, decisions, clustering, CNN, Transformer, VAE, RL)
 │   └── build.py             # runs solutions → practice.json + notebooks
-├── notebooks/               # 40 Colab notebooks (generated + the autoencoder notebook)
+├── notebooks/               # 43 Colab notebooks (generated + the autoencoder notebook)
 └── docs/screens/            # README screenshots
 ```
 
@@ -311,9 +314,9 @@ The key is the book letter (`M` = Murphy 1, `D` = D2L, `A` = Murphy 2) plus the 
 ## Roadmap
 
 - [x] Section-by-section explanations for Murphy 1 ch. 15–23
-- [x] Section-by-section explanations for D2L and Murphy 2 (all 80 chapters & 490 non-exercise sections explained with easy analogies, worked examples, code snippets and live equations)
-- [x] Learning paths, with stats, decision and clustering projects and a CNN from scratch
-- [x] Exercises for later chapters (Murphy 1 ch. 15–23, D2L and Murphy 2), and 8 new 3D labs (attention, SVM, trees, Kalman, MCMC, diffusion, RL, causality)
+- [x] Section-by-section explanations for D2L and Murphy 2 (all 80 chapters & 490 non-exercise sections explained with easy analogies, 90 worked examples, 81 code snippets and 45 live equations)
+- [x] Learning paths, with 10 build projects (including CNN, Transformer, VAE and Actor-Critic RL from scratch)
+- [x] Exercises for later chapters (Murphy 1 ch. 15–23, D2L and Murphy 2), and 29 chapter 3D labs (attention, GP/BayesOpt, SVM, trees, ResNet, LSTM, Kalman, MCMC, VAE, Flows, diffusion, GAN, RL, causality)
 - [x] Check questions for all 131 concepts across floors 0–10
 
 ## Contributing
