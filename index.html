@@ -1987,13 +1987,21 @@ function renderChapter(b, n, ch) {
 let chapAskSection = null;
 /* self-check quizzes: QUIZ[key] = [[question, [options], correctIndex, explanation], ...] (files in src/quiz/) */
 const QUIZ = {};
+const QUIZ_N = {};
+/* rotate each question's options by a fixed per-question amount so the right answer isn't always first */
+function quizGet(key) {
+  const q = QUIZ[key]; if (!q || QUIZ_N[key]) return q;
+  const h = [...key].reduce((a, c) => a + c.charCodeAt(0), 0);
+  q.forEach((x, i) => { const n = x[1].length, r = (h + i * 3 + 1) % n; x[1] = x[1].map((_, k) => x[1][(k - r + n) % n]); x[2] = (x[2] + r) % n; });
+  QUIZ_N[key] = 1; return q;
+}
 function quizHTML(key) {
-  const q = QUIZ[key]; if (!q || !q.length) return "";
+  const q = quizGet(key); if (!q || !q.length) return "";
   return `<div class="block quiz" data-quiz="${key}"><h3>Self-check (${q.length} questions)</h3><p class="note" style="margin:0 0 6px">Answer from memory first; tap an option to see why it is right or wrong. Your score is saved in this browser.</p>${q.map((x, i) => `<div class="qz" data-i="${i}" style="margin:10px 0"><p style="margin:0 0 4px"><b>${i + 1}.</b> ${esc(x[0])}</p><div class="btns" style="margin:0;flex-direction:column;align-items:stretch">${x[1].map((o, j) => `<button type="button" class="btn small" data-j="${j}" style="text-align:left">${esc(o)}</button>`).join("")}</div><p class="note qz-fb" style="margin:4px 0 0;color:var(--ink)" hidden></p></div>`).join("")}<p class="note qz-score" style="margin:8px 0 0"></p></div>`;
 }
 function bindQuiz(root) {
   const box = root.querySelector(".quiz"); if (!box) return;
-  const key = box.dataset.quiz, q = QUIZ[key], sk = "nvl-quiz-" + key; let done = {};
+  const key = box.dataset.quiz, q = quizGet(key), sk = "nvl-quiz-" + key; let done = {};
   try { done = JSON.parse(localStorage.getItem(sk) || "{}"); } catch (e) { }
   const score = () => { const n = Object.keys(done).length, r = Object.values(done).filter(Boolean).length; box.querySelector(".qz-score").textContent = n ? `Score: ${r} / ${q.length}${n === q.length ? (r === q.length ? " · perfect, move on" : " · revisit the sections you missed") : ""}` : ""; };
   const mark = (el, j, auto) => {
@@ -5233,6 +5241,306 @@ Object.assign(EASY, {
   "M23.4": "In each round, every person updates their summary by averaging notes from their direct friends; after three rounds you know about friends-of-friends-of-friends.",
   "M23.5": "Even if only five people in a network are labelled, passing messages along friendships spreads those labels to the neighbours who look and connect like them.",
   "M23.6": "Turn a whole molecule into a single summary vector by passing messages along its chemical bonds and adding up the atom summaries."
+});
+
+/* Self-check quizzes: Murphy 2 ch. 1–12 */
+Object.assign(QUIZ, {
+  A1: [
+    ["How does Book 2 extend Book 1's setup?", ["Structured outputs, uncertainty, Bayesian inference and generative/decision models", "It drops probability", "It only adds more layers", "It covers hardware"], 0, "It moves beyond point estimates on iid data."],
+    ["Why care about calibrated uncertainty?", ["Decisions and risk depend on how confident predictions truly are", "It makes models smaller", "It speeds training", "It replaces data"], 0, "A wrong but confident prediction is costly."]
+  ],
+  A2: [
+    ["The exponential family has the form p(x|η) = h(x) exp(ηᵀT(x) − A(η)). What is A(η)?", ["The log-partition function; its derivatives give moments of T(x)", "The prior", "The likelihood ratio", "A kernel"], 0, "∇A(η) = E[T(x)]."],
+    ["Which relation holds for a Markov chain X→Y→Z?", ["Z ⊥ X | Y", "X ⊥ Y", "Y ⊥ Z", "X = Z"], 0, "Given the present, future is independent of past."],
+    ["The change-of-variables rule for y = f(x) (invertible) gives p_Y(y) =", ["p_X(f⁻¹(y)) |det ∂f⁻¹/∂y|", "p_X(f(y))", "p_X(y)", "p_X(y)/y"], 0, "The Jacobian determinant accounts for volume change (basis of flows)."]
+  ],
+  A3: [
+    ["The Bayesian posterior for a conjugate Beta–Bernoulli model after k heads in n flips is…", ["Beta(a+k, b+n−k)", "Beta(a, b)", "Normal", "Uniform"], 0, "Conjugacy keeps the posterior in the same family."],
+    ["The Laplace approximation fits…", ["A Gaussian at the posterior mode using the Hessian", "A mixture", "A tree", "A uniform"], 0, "Covariance = inverse Hessian of the negative log posterior."],
+    ["Empirical Bayes chooses hyperparameters by…", ["Maximising the marginal likelihood (evidence)", "Cross-validation only", "Prior guess", "Random"], 0, "Integrating out parameters penalises needlessly complex models."]
+  ],
+  A4: [
+    ["In a directed graphical model the joint factorises as…", ["Π p(xᵢ | parents(xᵢ))", "Π p(xᵢ)", "p(x) only", "A sum of potentials"], 0, "Each node conditions on its parents."],
+    ["d-separation is used to…", ["Read conditional independencies from a DAG", "Fit parameters", "Sample", "Optimise"], 0, "It reasons about blocked paths."],
+    ["Conditioning on a collider (X→Z←Y)…", ["Makes X and Y dependent (explaining away)", "Keeps them independent", "Removes Z", "Has no effect"], 0, "Observing the effect couples its causes."]
+  ],
+  A5: [
+    ["Mutual information I(X;Y) is zero iff…", ["X and Y are independent", "X = Y", "H(X)=0 only", "They are uncorrelated"], 0, "I(X;Y) = KL(p(x,y)‖p(x)p(y))."],
+    ["The data-processing inequality says…", ["Processing Y cannot increase information about X", "Processing always adds information", "Entropy is additive", "KL is symmetric"], 0, "For X→Y→Z, I(X;Z) ≤ I(X;Y)."],
+    ["The ELBO relates to KL as log p(x) =", ["ELBO + KL(q‖p(z|x))", "ELBO − KL(q‖p)", "ELBO only", "KL only"], 0, "Since KL ≥ 0, the ELBO is a lower bound."]
+  ],
+  A6: [
+    ["Newton's method uses…", ["The Hessian to scale gradient steps", "Only momentum", "Random steps", "Sign of gradient only"], 0, "θ ← θ − H⁻¹g; quadratic convergence near an optimum."],
+    ["Natural gradient descent preconditions with…", ["The Fisher information matrix", "The identity", "The Hessian of loss only", "Learning rate decay"], 0, "It follows steepest descent in distribution space (KL)."],
+    ["A common trick for constrained optimisation is…", ["Lagrange multipliers / projected steps", "Ignoring constraints", "Random restarts only", "Larger batch"], 0, "KKT conditions characterise the optimum."]
+  ],
+  A7: [
+    ["A key distinction among inference methods is…", ["Exact vs approximate, and deterministic (VI) vs sampling (MCMC)", "CPU vs GPU", "Python vs C", "Training vs test"], 0, "Each trades accuracy, speed and bias."],
+    ["Why is exact Bayesian inference usually intractable?", ["The normalising integral p(x)=∫p(x,z)dz has no closed form in high dimensions", "Priors are unknown", "Data is small", "Models are linear"], 0, "Hence VI, MCMC, SMC."]
+  ],
+  A8: [
+    ["The Kalman filter's belief about the state at each step is…", ["A Gaussian updated by predict and update steps", "A uniform", "A particle set", "A tree"], 0, "Exact for linear-Gaussian state-space models."],
+    ["The Kalman gain balances…", ["Trust in the prediction vs trust in the new measurement", "Learning rate and decay", "Bias and variance of weights", "Speed and memory"], 0, "Large measurement noise lowers the gain."],
+    ["For nonlinear dynamics we can use…", ["EKF/UKF linearisations or particle filters", "Nothing", "Only the plain KF", "Only grids of size 1"], 0, "They approximate the Gaussian propagation."]
+  ],
+  A9: [
+    ["Belief propagation on a tree gives…", ["Exact marginals via message passing", "Approximate marginals only", "Samples", "Gradients"], 0, "Messages are passed in two sweeps."],
+    ["On graphs with loops, loopy BP is…", ["Approximate and not guaranteed to converge", "Always exact", "Impossible", "Equivalent to sampling"], 0, "Often works well in practice."],
+    ["Expectation propagation approximates…", ["Factors by moment-matching within an exponential family", "Posterior by sampling", "Priors by uniform", "Likelihood by ignoring it"], 0, "It minimises KL(p‖q) locally, unlike VI's KL(q‖p)."]
+  ],
+  A10: [
+    ["Variational inference optimises…", ["The ELBO over a family of tractable distributions q", "The likelihood directly", "A sampler", "The prior"], 0, "Equivalent to minimising KL(q‖posterior)."],
+    ["The reparameterisation trick writes z = μ + σ·ε with ε~N(0,1) so that…", ["Gradients can flow through the sample to μ and σ", "z is deterministic", "σ is fixed", "It avoids the KL"], 0, "Lower-variance gradient estimator than score-function methods."],
+    ["Mean-field VI assumes…", ["The approximate posterior factorises over variables", "The posterior is exact", "Variables are perfectly correlated", "No prior"], 0, "It tends to underestimate posterior variance."]
+  ],
+  A11: [
+    ["Importance sampling estimates E_p[f] using…", ["Samples from q weighted by p/q", "Samples from p only", "Gradients", "Optimisation"], 0, "Variance explodes if q has lighter tails than p."],
+    ["Effective sample size tells you…", ["How many independent samples your weighted samples are worth", "The data size", "The number of chains", "The batch size"], 0, "Low ESS means weight degeneracy."],
+    ["Rejection sampling needs…", ["An envelope M·q(x) ≥ p̃(x)", "A Hessian", "A kernel", "A prior only"], 0, "Acceptance probability p̃/(Mq)."]
+  ],
+  A12: [
+    ["Metropolis–Hastings accepts a proposal with probability…", ["min(1, p(x′)q(x|x′) / p(x)q(x′|x))", "Always 1", "p(x′)", "0.5"], 0, "This ensures detailed balance."],
+    ["Hamiltonian Monte Carlo uses…", ["Gradients of log p to propose distant, high-acceptance moves", "Random walks only", "Grids", "Optimisation only"], 0, "Simulates physical dynamics with momentum."],
+    ["Gibbs sampling updates…", ["One variable at a time from its full conditional", "All at once from the joint", "Randomly", "By gradient"], 0, "It is MH with acceptance probability 1."]
+  ]
+});
+
+/* Self-check quizzes: Murphy 2 ch. 13–24 */
+Object.assign(QUIZ, {
+  A13: [
+    ["A particle filter represents the belief as…", ["Weighted samples (particles) propagated and resampled", "A Gaussian", "A table", "A tree"], 0, "Works for nonlinear/non-Gaussian state-space models."],
+    ["Resampling in SMC is used to…", ["Combat weight degeneracy by replicating high-weight particles", "Increase variance", "Reduce state size", "Normalise data"], 0, "Too frequent resampling causes sample impoverishment."],
+    ["SMC samplers can also estimate…", ["The marginal likelihood", "Only the mean", "Gradients of nothing", "Model size"], 0, "Via the product of average incremental weights."]
+  ],
+  A14: [
+    ["Predictive models in Book 2 emphasise…", ["Uncertainty: p(y|x,D), not just a point prediction", "Speed only", "Unsupervised learning", "Rules"], 0, "Aleatoric and epistemic uncertainty."],
+    ["Epistemic uncertainty is…", ["Uncertainty from limited knowledge/data, reducible with more data", "Irreducible noise", "Label noise", "Numeric error"], 0, "Aleatoric is irreducible observation noise."]
+  ],
+  A15: [
+    ["Bayesian logistic regression has no closed-form posterior, so we use…", ["Laplace, VI or MCMC", "OLS", "Nothing", "A lookup"], 0, "The sigmoid breaks conjugacy."],
+    ["The probit link uses…", ["The Gaussian CDF", "The sigmoid", "The log", "The identity"], 0, "Similar shape to logistic with lighter tails."],
+    ["Generalised additive models extend GLMs by…", ["Replacing wᵀx with a sum of learned smooth functions of each feature", "Adding layers", "Removing the link", "Using trees"], 0, "Interpretable non-linear effects."]
+  ],
+  A16: [
+    ["Why do modern deep nets often need normalisation layers?", ["They stabilise activations/gradients and ease optimisation", "To add parameters", "To save labels", "To reduce data"], 0, "BatchNorm, LayerNorm."],
+    ["Overparameterised nets can still generalise. This is linked to…", ["Implicit regularisation of SGD and benign interpolation", "Their small size", "Lack of data", "Linearity"], 0, "Double descent is one signature."],
+    ["Scaling laws say loss decreases as a…", ["Power law in compute, data and parameters", "Linear function", "Step function", "Random walk"], 0, "Empirically smooth over many orders of magnitude."]
+  ],
+  A17: [
+    ["A BNN places a distribution over…", ["The weights", "The inputs", "The labels only", "The learning rate"], 0, "Prediction averages over weight uncertainty."],
+    ["Deep ensembles estimate uncertainty by…", ["Training several networks from different inits and combining predictions", "Using one net", "Dropout", "Changing loss"], 0, "A strong, simple baseline."],
+    ["MC dropout interprets dropout at test time as…", ["Approximate Bayesian inference by averaging stochastic forward passes", "A bug", "Pruning", "Normalisation"], 0, "Variance across passes indicates uncertainty."]
+  ],
+  A18: [
+    ["The kernel in a GP encodes…", ["Prior assumptions on smoothness and structure of f", "Noise level only", "The loss", "The data size"], 0, "RBF gives smooth functions, Matérn rougher ones."],
+    ["Sparse GPs with inducing points reduce cost from O(n³) to…", ["O(nm²)", "O(n⁴)", "O(1)", "O(n)"], 0, "m ≪ n inducing points summarise the data."],
+    ["The GP marginal likelihood is used to…", ["Learn kernel hyperparameters", "Make predictions only", "Sample", "Compute gradients of data"], 0, "It balances data fit against complexity."]
+  ],
+  A19: [
+    ["Covariate shift is when…", ["p(x) changes between train and test but p(y|x) stays", "Labels change", "Models change", "Loss changes"], 0, "Importance weighting can correct it."],
+    ["Conformal prediction gives…", ["Prediction sets with finite-sample coverage guarantees under exchangeability", "Exact posteriors", "Better accuracy", "Faster training"], 0, "Model-agnostic uncertainty."],
+    ["Continual learning's main danger is…", ["Catastrophic forgetting of old tasks", "Overfitting to test data", "Too many labels", "Slow GPUs"], 0, "Replay and regularisation (EWC) mitigate it."]
+  ],
+  A20: [
+    ["A generative model learns…", ["p(x) (or p(x|c)) so it can sample new data", "Only p(y|x)", "Decision boundaries only", "Nothing"], 0, "Evaluation uses likelihood, FID, etc."],
+    ["Which family gives exact likelihood?", ["Autoregressive models and normalising flows", "GANs", "Plain VAEs", "Diffusion samplers only"], 0, "GANs have no tractable likelihood; VAEs a bound."]
+  ],
+  A21: [
+    ["A VAE's loss is…", ["Reconstruction term + KL(q(z|x)‖p(z))", "Reconstruction only", "KL only", "Adversarial loss"], 0, "The negative ELBO."],
+    ["Posterior collapse is when…", ["The decoder ignores z and q(z|x) equals the prior", "z is too large", "The KL is huge", "The encoder is deterministic"], 0, "Powerful decoders encourage it; KL annealing helps."],
+    ["β-VAE with β>1…", ["Weights the KL more, encouraging disentangled but blurrier representations", "Removes the KL", "Is a GAN", "Is autoregressive"], 0, "It trades reconstruction for a more factorised latent."]
+  ],
+  A22: [
+    ["Autoregressive models factorise p(x)=", ["Π p(xᵢ | x<ᵢ)", "Π p(xᵢ)", "p(x|z)p(z)", "Σ p(xᵢ)"], 0, "Chain rule of probability."],
+    ["Why is sampling from an autoregressive model slow?", ["Tokens are generated sequentially, one at a time", "No likelihood", "It needs a GAN", "Weights are huge"], 0, "Training is parallel with masking; sampling is not."],
+    ["Causal masking in a Transformer ensures…", ["Position i cannot attend to future positions", "Fewer parameters", "Bidirectional context", "Random order"], 0, "Preserves the autoregressive factorisation."]
+  ],
+  A23: [
+    ["Normalising flows compute likelihood by…", ["Change of variables with the Jacobian determinant", "Sampling", "A bound", "A discriminator"], 0, "log p(x)=log p(z)+log|det ∂z/∂x|."],
+    ["Coupling layers (RealNVP) are designed so that…", ["The Jacobian is triangular and cheap, and the inverse is easy", "The flow is non-invertible", "Training is adversarial", "z is discrete"], 0, "Only half the dimensions are transformed at a time."],
+    ["Flows must be…", ["Invertible and have tractable Jacobians", "Non-differentiable", "Linear", "Small"], 0, "Which restricts architecture choices."]
+  ],
+  A24: [
+    ["An energy-based model defines p(x) ∝", ["exp(−E(x))", "E(x)", "1/E(x)", "log E(x)"], 0, "Low energy = high probability."],
+    ["Why is training EBMs hard?", ["The partition function Z is intractable", "No parameters", "No gradients ever", "They need labels"], 0, "Contrastive divergence/MCMC estimate its gradient."],
+    ["Score matching avoids Z by…", ["Matching ∇ₓ log p(x), which does not depend on Z", "Ignoring the data", "Sampling", "Using GANs"], 0, "Z is constant in x so it vanishes in the gradient."]
+  ]
+});
+
+/* Self-check quizzes: Murphy 2 ch. 25–36 */
+Object.assign(QUIZ, {
+  A25: [
+    ["The forward process of a diffusion model…", ["Gradually adds Gaussian noise to data until it is nearly pure noise", "Removes noise", "Trains a GAN", "Compresses data"], 0, "q(xₜ|xₜ₋₁) = N(√(1−βₜ)xₜ₋₁, βₜI)."],
+    ["The denoising network is trained to predict…", ["The noise added (or equivalently the score/clean image)", "Labels", "Pixels at random", "The schedule"], 0, "Simple MSE loss on ε."],
+    ["Classifier-free guidance…", ["Mixes conditional and unconditional predictions to trade diversity for fidelity", "Needs a classifier", "Removes conditioning", "Is a flow"], 0, "Higher guidance scale means closer prompt adherence."]
+  ],
+  A26: [
+    ["A GAN's minimax objective is…", ["min_G max_D E[log D(x)] + E[log(1−D(G(z)))]", "min of reconstruction", "ELBO", "Likelihood"], 0, "At the optimum the discriminator outputs 1/2."],
+    ["Wasserstein GANs improve stability by…", ["Using a smoother distance measure (critic with Lipschitz constraint)", "Using labels", "Using dropout", "Using KL"], 0, "Gradients stay informative when distributions do not overlap."],
+    ["FID evaluates…", ["Distance between feature statistics of real and generated images", "Pixel MSE", "Likelihood", "Labels"], 0, "Lower is better."]
+  ],
+  A27: [
+    ["Discovery methods aim to…", ["Find structure (clusters, factors, graphs) without supervision", "Predict labels", "Control agents", "Compress files"], 0, "Latent variable and structure learning."],
+    ["Identifiability issues arise because…", ["Different latent parameterisations can explain the same data equally well", "Data is missing labels", "Models are small", "Priors are flat"], 0, "e.g. rotation of factors."]
+  ],
+  A28: [
+    ["Factor analysis differs from PCA by…", ["Modelling per-feature noise variances probabilistically", "Using labels", "Being nonlinear", "Using trees"], 0, "PCA is the isotropic-noise limit (probabilistic PCA)."],
+    ["Rotation ambiguity in factor analysis means…", ["Loadings are only identifiable up to an orthogonal transform", "The model is wrong", "No inference is possible", "It needs more data"], 0, "Varimax or sparsity priors pick an interpretable rotation."],
+    ["ICA recovers…", ["Statistically independent non-Gaussian sources", "Gaussian clusters", "Principal axes", "Labels"], 0, "It requires non-Gaussianity."]
+  ],
+  A29: [
+    ["A hidden Markov model has…", ["Discrete hidden states with Markov transitions and emissions", "Continuous states only", "No hidden states", "Iid data"], 0, "Forward–backward computes state marginals."],
+    ["The Viterbi algorithm finds…", ["The single most likely state sequence", "Marginals", "Parameters", "Gradients"], 0, "Dynamic programming over max-product."],
+    ["Modern deep state-space models (S4, Mamba) aim to…", ["Model long sequences with linear-time recurrence/convolution", "Replace probability", "Use graphs", "Avoid GPUs"], 0, "Alternatives to quadratic attention."]
+  ],
+  A30: [
+    ["A GNN's message passing step…", ["Aggregates neighbour information to update each node", "Removes edges", "Orders nodes", "Predicts labels only"], 0, "Permutation-equivariant by design."],
+    ["Spectral graph methods rely on…", ["Eigenvectors of the graph Laplacian", "Pixels", "Tokens", "Kernels only"], 0, "Low eigenvalues = smooth signals on the graph."],
+    ["Graph attention differs from GCN by…", ["Learning neighbour weights via attention instead of fixed degree-based ones", "Using no edges", "Having no features", "Being linear"], 0, "More expressive aggregation."]
+  ],
+  A31: [
+    ["A Dirichlet process mixture lets the number of clusters…", ["Grow with the data", "Be fixed at 2", "Be zero", "Be negative"], 0, "A nonparametric prior over partitions."],
+    ["The Chinese restaurant process describes…", ["The rich-get-richer assignment of points to clusters", "A Markov chain on words", "A tree", "A kernel"], 0, "Larger tables attract more customers; α controls new tables."],
+    ["GPs are 'nonparametric' because…", ["Model complexity grows with the amount of data", "They have no hyperparameters", "They are untrained", "They use no kernel"], 0, "The kernel matrix is n×n."]
+  ],
+  A32: [
+    ["Contrastive learning (e.g. SimCLR) trains representations by…", ["Pulling positive pairs together and pushing negatives apart", "Predicting labels", "Reconstruction", "Sampling"], 0, "InfoNCE lower-bounds mutual information."],
+    ["Masked autoencoders learn by…", ["Reconstructing masked parts of the input from the rest", "Classifying", "Adversarial play", "Clustering"], 0, "BERT in language, MAE in vision."],
+    ["A good representation should be…", ["Useful for many downstream tasks with simple heads", "As large as the input", "Random", "Label-specific only"], 0, "Linear probing measures this."]
+  ],
+  A33: [
+    ["SHAP values explain a prediction by…", ["Fairly attributing it to features using Shapley values from game theory", "Showing the weights", "Pruning", "Sampling"], 0, "Additive, local explanations."],
+    ["Saliency/gradient maps can be unreliable because…", ["They may be insensitive to the model or noisy", "They are exact", "They need labels", "They use no gradients"], 0, "Sanity checks reveal this; integrated gradients help."],
+    ["An inherently interpretable model example is…", ["A sparse linear model or small decision tree", "A 100-layer net", "A GAN", "A diffusion model"], 0, "Interpretability vs accuracy is a trade-off."]
+  ],
+  A34: [
+    ["Maximising expected utility means choosing the action…", ["With highest expected utility under your beliefs", "With lowest variance", "With highest probability", "At random"], 0, "Decision theory under uncertainty."],
+    ["A multi-armed bandit's regret measures…", ["Reward lost versus always pulling the best arm", "Training loss", "Model size", "Variance"], 0, "UCB and Thompson sampling achieve logarithmic regret."],
+    ["Thompson sampling picks an arm by…", ["Sampling from the posterior over arm values and choosing the best sample", "Choosing the highest mean", "Random", "Round robin"], 0, "Exploration is automatic from posterior uncertainty."]
+  ],
+  A35: [
+    ["The policy gradient theorem allows…", ["Optimising expected return by gradient ascent on policy parameters", "Exact planning", "Supervised learning", "Value-only methods"], 0, "∇J = E[∇log π · return]."],
+    ["Actor–critic methods use…", ["A learned value function (critic) to reduce policy gradient variance", "No policy", "Only rewards", "Only supervision"], 0, "The advantage replaces the raw return."],
+    ["Model-based RL…", ["Learns a dynamics model and plans with it, often more sample-efficient", "Needs no data", "Is always better", "Is supervised"], 0, "At the cost of model error."]
+  ],
+  A36: [
+    ["Correlation does not imply causation because…", ["A confounder can drive both variables", "Data is always noisy", "Correlation is non-linear", "Models are small"], 0, "Randomised experiments break confounding."],
+    ["The do-operator do(X=x) differs from conditioning on X=x by…", ["Cutting incoming edges to X (an intervention)", "Adding data", "Averaging", "Nothing"], 0, "p(y|do(x)) ≠ p(y|x) in general."],
+    ["The backdoor adjustment requires…", ["Conditioning on a set blocking all backdoor paths from X to Y", "Conditioning on all variables", "Conditioning on colliders", "No data"], 0, "p(y|do(x)) = Σ_z p(y|x,z)p(z)."]
+  ]
+});
+
+/* Self-check quizzes: Dive into Deep Learning ch. 1–10 */
+Object.assign(QUIZ, {
+  D1: [
+    ["Which ingredients make up a machine learning problem in d2l's framing?", ["Data, model, objective (loss) and optimisation algorithm", "Only data and a GPU", "Rules written by hand", "Labels and a database"], 0, "Learning = tune model parameters to minimise a loss on data."],
+    ["What does 'generalisation' mean?", ["Low error on new data from the same distribution", "Low training error", "Using more layers", "Using fewer features"], 0, "Training error alone is not the goal."],
+    ["Why did deep learning take off around 2012?", ["Large datasets, GPUs and better training tricks", "A single new equation", "Smaller models", "Symbolic AI"], 0, "AlexNet showed the combination working at scale."]
+  ],
+  D2: [
+    ["What is broadcasting in NumPy/PyTorch?", ["Implicitly expanding size-1 dimensions so shapes match in elementwise ops", "Sending data to a server", "Randomising tensors", "Copying to GPU"], 0, "A (3,1) tensor plus a (1,4) tensor gives (3,4)."],
+    ["What does autograd compute?", ["Gradients of a scalar w.r.t. tensors via the computational graph", "Matrix inverses", "Random numbers", "Loss values only"], 0, "Reverse-mode differentiation."],
+    ["Why must you zero gradients between PyTorch steps?", ["Gradients accumulate by default", "They are deleted automatically", "To save memory", "To reseed"], 0, ".backward() adds to .grad."]
+  ],
+  D3: [
+    ["Linear regression with squared loss, trained by SGD, updates w by…", ["−η · mean((ŷ−y)·x) over the minibatch", "−η · y", "+η · w", "Random noise"], 0, "That is the gradient of ½(ŷ−y)²."],
+    ["What is a minibatch's role?", ["A cheap noisy estimate of the full gradient", "A validation set", "A regulariser only", "A test set"], 0, "Batch size trades speed against gradient noise."],
+    ["Weight decay in this chapter corresponds to…", ["L2 regularisation", "Dropout", "Data augmentation", "Early stopping"], 0, "It adds (λ/2)‖w‖² to the loss."]
+  ],
+  D4: [
+    ["Softmax turns logits into…", ["A probability distribution over classes", "Binary labels", "Gradients", "Weights"], 0, "exp(oᵢ)/Σ exp(oⱼ)."],
+    ["Why compute cross-entropy from logits with log-sum-exp?", ["Numerical stability (avoid overflow/underflow)", "Speed", "To reduce classes", "It is required by law"], 0, "Subtracting the max before exp avoids inf."],
+    ["Distribution shift means…", ["Test data differs from training data distribution", "The learning rate shifts", "Weights move", "Labels are removed"], 0, "e.g. covariate shift, label shift."]
+  ],
+  D5: [
+    ["Dropout during training…", ["Randomly zeros activations and rescales to regularise", "Removes layers permanently", "Increases capacity", "Is used at test time too"], 0, "At test time the full network is used."],
+    ["What is the vanishing gradient problem?", ["Gradients shrink through layers so early layers barely learn", "Loss becomes zero", "Weights vanish", "Data vanishes"], 0, "Sigmoid/tanh saturation is a classic cause."],
+    ["Why initialise weights with Xavier/He schemes?", ["Keep activation and gradient variance stable across layers", "To make them zero", "To increase loss", "To save memory"], 0, "Symmetry must also be broken."]
+  ],
+  D6: [
+    ["In PyTorch, nn.Module's forward defines…", ["How inputs map to outputs; parameters are registered automatically", "The optimizer", "The dataset", "The loss only"], 0, "Parameters assigned as nn.Parameter/submodules are tracked."],
+    ["Lazy initialisation lets you…", ["Skip specifying input dimensions until the first forward pass", "Skip training", "Use no GPU", "Avoid parameters"], 0, "Shapes are inferred."],
+    ["model.state_dict() is used to…", ["Save and load parameters", "Train faster", "Add layers", "Plot"], 0, "Serialising weights, not the architecture."]
+  ],
+  D7: [
+    ["A 3×3 convolution on a 32×32 input with padding 1 and stride 1 yields output size…", ["32×32", "30×30", "16×16", "34×34"], 0, "(32 − 3 + 2·1)/1 + 1 = 32."],
+    ["Why is a conv layer more parameter-efficient than a dense layer on images?", ["Locality and weight sharing", "It has no bias", "It is linear", "It uses no kernels"], 0, "The same small kernel is reused everywhere."],
+    ["What does a 1×1 convolution do?", ["Mixes channels at each pixel", "Nothing", "Downsamples", "Blurs"], 0, "It is a per-pixel dense layer across channels."]
+  ],
+  D8: [
+    ["VGG's key idea was…", ["Stacking many small 3×3 conv blocks", "Using attention", "Using skip connections", "One huge kernel"], 0, "Depth with small kernels beats a few large ones."],
+    ["ResNet solved…", ["The degradation problem of very deep nets using skip connections", "Overfitting alone", "Data scarcity", "RNN training"], 0, "Layers learn a residual F(x) relative to identity."],
+    ["Batch normalisation…", ["Normalises activations per mini-batch, speeding up and stabilising training", "Normalises labels", "Replaces weights", "Removes bias"], 0, "It uses learned scale and shift."]
+  ],
+  D9: [
+    ["An RNN's hidden state carries…", ["A summary of the past inputs", "The labels", "The weights", "The loss"], 0, "hₜ = f(hₜ₋₁, xₜ)."],
+    ["Why use gradient clipping in RNNs?", ["Prevent exploding gradients", "Prevent overfitting", "Reduce data", "Speed GPUs"], 0, "Rescale the gradient when its norm exceeds a threshold."],
+    ["Perplexity of a language model is…", ["exp of the average cross-entropy per token", "Accuracy", "Number of parameters", "Sequence length"], 0, "Lower is better; it is the effective branching factor."]
+  ],
+  D10: [
+    ["The LSTM's forget/input/output gates…", ["Control what to erase, write and expose from the memory cell", "Are fixed", "Remove gradients", "Replace embeddings"], 0, "The additive cell update eases gradient flow."],
+    ["A GRU compared to an LSTM…", ["Has fewer gates (reset, update) and no separate cell state", "Has more parameters", "Cannot be trained", "Is not recurrent"], 0, "Often similar accuracy, cheaper."],
+    ["In encoder–decoder seq2seq, teacher forcing means…", ["Feeding the true previous token to the decoder during training", "Forcing the teacher", "Skipping the decoder", "Using greedy search"], 0, "It speeds training but causes exposure bias."]
+  ]
+});
+
+/* Self-check quizzes: Dive into Deep Learning ch. 11–21 */
+Object.assign(QUIZ, {
+  D11: [
+    ["Scaled dot-product attention divides QKᵀ by √d because…", ["Large dot products make softmax saturate and gradients vanish", "It normalises labels", "It reduces cost", "It is traditional"], 0, "Variance of the dot product grows with d."],
+    ["Multi-head attention lets the model…", ["Attend to different relationships in different subspaces in parallel", "Use less memory", "Skip positions", "Avoid softmax"], 0, "Heads are concatenated and projected."],
+    ["Compared to RNNs, Transformers…", ["Process all positions in parallel but cost O(n²) in sequence length", "Are sequential", "Are cheaper for long contexts", "Have no parameters"], 0, "Attention's quadratic cost motivates efficient variants."]
+  ],
+  D12: [
+    ["Momentum helps SGD by…", ["Accumulating a velocity that smooths noise and speeds along consistent directions", "Increasing batch size", "Lowering loss directly", "Removing the learning rate"], 0, "It damps oscillation in narrow valleys."],
+    ["Adam combines…", ["Momentum and per-parameter adaptive scaling (RMSProp-like)", "Second-order Newton steps", "Dropout and decay", "Batch norm and SGD"], 0, "It keeps running means of gradient and squared gradient."],
+    ["A learning-rate warm-up is useful because…", ["Early adaptive statistics/gradients are unreliable and large steps can destabilise", "It lowers final loss always", "It is required by Adam only", "It adds data"], 0, "Particularly for Transformers."]
+  ],
+  D13: [
+    ["Why is asynchronous GPU execution important to know when benchmarking?", ["You must synchronise before timing or you measure only the launch", "GPUs are slow", "It changes results", "It avoids memory"], 0, "Call torch.cuda.synchronize()."],
+    ["Data parallelism splits…", ["The batch across devices with replicated models", "The model layers", "The loss", "The optimizer"], 0, "Gradients are averaged (all-reduce)."],
+    ["A hybrid/compiled graph trades…", ["Flexibility for speed through whole-graph optimisation", "Speed for accuracy", "Memory for labels", "Nothing"], 0, "TorchScript/torch.compile style."]
+  ],
+  D14: [
+    ["Image augmentation is most useful when…", ["Data is limited and the transformation preserves the label", "Data is huge only", "Labels change", "At test time only"], 0, "Flips, crops, colour jitter."],
+    ["Fine-tuning a pretrained CNN usually…", ["Uses a smaller learning rate for pretrained layers and a new head", "Starts random", "Freezes nothing ever", "Needs more data than scratch"], 0, "Pretrained features are a strong initialisation."],
+    ["Intersection over Union (IoU) measures…", ["Overlap between predicted and true boxes", "Accuracy", "Loss", "Speed"], 0, "Area of overlap divided by area of union."]
+  ],
+  D15: [
+    ["word2vec skip-gram learns embeddings by…", ["Predicting context words from a centre word", "Counting characters", "Sorting", "Translating"], 0, "Negative sampling makes it efficient."],
+    ["BERT pretraining uses…", ["Masked language modelling (and next sentence prediction in the original)", "Image classification", "Reinforcement learning", "Autoregressive decoding only"], 0, "Bidirectional context fills in masked tokens."],
+    ["Subword tokenisation (BPE) helps…", ["Handle rare/unseen words with a fixed vocabulary", "Remove grammar", "Skip embeddings", "Make words longer"], 0, "Frequent pairs are merged repeatedly."]
+  ],
+  D16: [
+    ["Fine-tuning BERT for sentiment adds…", ["A small classification head on the [CLS] representation", "A new Transformer", "A vision model", "Nothing"], 0, "The whole model is usually updated."],
+    ["Natural language inference asks…", ["Whether a hypothesis is entailed by, contradicts or is neutral to a premise", "To translate", "To tag parts of speech", "To generate text"], 0, "A three-way sentence-pair classification."],
+    ["Beam search vs greedy decoding…", ["Keeps several partial hypotheses to find higher-probability sequences", "Is always worse", "Is random", "Uses no probabilities"], 0, "Beam width trades compute for quality."]
+  ],
+  D17: [
+    ["In an MDP, the Bellman equation expresses…", ["Value of a state in terms of immediate reward plus discounted next-state value", "The loss of a network", "Probabilities of words", "Gradient norm"], 0, "V(s) = maxₐ [r + γ Σ P V(s′)]."],
+    ["The exploration–exploitation trade-off is…", ["Trying new actions vs using the best-known one", "Training vs testing", "Bias vs variance", "CPU vs GPU"], 0, "ε-greedy is the simplest remedy."],
+    ["Q-learning is 'off-policy' because…", ["It learns the greedy policy's value while following another behaviour policy", "It never explores", "It is supervised", "It needs a model"], 0, "The target uses maxₐ′ Q(s′,a′)."]
+  ],
+  D18: [
+    ["A GP is defined by…", ["A mean function and a covariance (kernel) function", "A set of weights", "A tree", "A loss"], 0, "Any finite set of function values is jointly Gaussian."],
+    ["GP posterior variance is smallest…", ["Near observed training points", "Far from data", "At the mean", "Nowhere"], 0, "Far from data it reverts to the prior."],
+    ["Exact GP regression costs…", ["O(n³) for n training points", "O(n)", "O(log n)", "O(1)"], 0, "A Cholesky factorisation of the n×n kernel matrix."]
+  ],
+  D19: [
+    ["Random search often beats grid search because…", ["Only a few hyperparameters matter, and random samples try more distinct values of them", "It is exhaustive", "It uses gradients", "It needs less data"], 0, "Grid wastes trials on unimportant axes."],
+    ["Successive halving/Hyperband…", ["Give more budget to promising configurations and stop poor ones early", "Train all fully", "Pick at random", "Avoid validation"], 0, "Multi-fidelity optimisation."],
+    ["Bayesian optimisation picks the next trial by…", ["Maximising an acquisition function on a surrogate (often a GP)", "Random draw", "Grid", "Gradient"], 0, "Expected improvement balances exploration and exploitation."]
+  ],
+  D20: [
+    ["In a GAN, the discriminator is trained to…", ["Tell real from generated samples", "Generate images", "Compress data", "Predict labels"], 0, "The generator tries to fool it."],
+    ["Mode collapse means…", ["The generator produces only a small variety of samples", "The loss is zero", "The discriminator wins", "Training is fast"], 0, "It maps many z to the same few outputs."],
+    ["Why can GAN training be unstable?", ["It is a minimax game, not a single minimisation", "Too few parameters", "No gradients exist", "Data is labelled"], 0, "Simultaneous updates can oscillate."]
+  ],
+  D21: [
+    ["Collaborative filtering uses…", ["Patterns in many users' interactions to predict a user's preferences", "Item text only", "Random ratings", "User photos"], 0, "Similar users like similar items."],
+    ["AutoRec / neural CF improves matrix factorisation by…", ["Learning non-linear interactions between user and item representations", "Removing embeddings", "Using labels only", "Using trees"], 0, "e.g. MLP over concatenated embeddings."],
+    ["Click-through-rate models such as DeepFM combine…", ["Low-order feature interactions (FM) and high-order ones (deep net)", "Only trees", "Only images", "Only RNNs"], 0, "Handles sparse categorical features."]
+  ]
 });
 
 /* Self-check quizzes: Murphy 1 ch. 1–8. Format: [question, [options], correctIndex, explanation] */
